@@ -3,6 +3,7 @@ package luna
 import (
 	"fmt"
 	"github.com/aarzilli/golua/lua"
+	"reflect"
 )
 
 type Lib uint
@@ -82,34 +83,96 @@ func (l *Luna) LoadFile(path string) {
 	l.L.DoFile(path)
 }
 
-func (l *Luna) Call(name string, args ...interface{}) error {
+func (l *Luna) pushBasicType(arg interface{}) bool {
+	switch t := arg.(type) {
+	case float32:
+		l.L.PushNumber(float64(t))
+	case float64:
+		l.L.PushNumber(t)
+	case int:
+		l.L.PushInteger(int64(t))
+	case int8:
+		l.L.PushInteger(int64(t))
+	case int16:
+		l.L.PushInteger(int64(t))
+	case int32:
+		l.L.PushInteger(int64(t))
+	case int64:
+		l.L.PushInteger(t)
+	case string:
+		l.L.PushString(t)
+	case bool:
+		l.L.PushBoolean(t)
+	case nil:
+		l.L.PushNil()
+	default:
+		return false
+	}
+
+	return true
+}
+
+func (l *Luna) pushStruct(arg reflect.Value) error {
+	l.L.NewTable()
+	typ := arg.Type()
+	for i := 0; i < arg.NumField(); i++ {
+		field := arg.Field(i)
+		fieldTyp := typ.Field(i)
+		if l.pushBasicType(field.Interface()) {
+			l.L.SetField(-2, fieldTyp.Name)
+			continue
+		}
+
+		if err := l.pushComplexType(field.Interface()); err != nil {
+			return err
+		}
+		l.L.SetField(-2, fieldTyp.Name)
+	}
+	return nil
+}
+
+func (l *Luna) pushComplexType(arg interface{}) (err error) {
+	typ := reflect.TypeOf(arg)
+	switch typ.Kind() {
+	case reflect.Struct:
+		if err = l.pushStruct(reflect.ValueOf(arg)); err != nil {
+			return
+		}
+	case reflect.Ptr:
+		/*
+		if typ.Elem().Kind() == reflect.Struct {
+			l.L.PushGoStruct(arg)
+			break
+		}
+		*/
+		fallthrough
+	default:
+		err = fmt.Errorf("Invalid type: %s", typ.Kind())
+	}
+	return
+}
+
+func (l *Luna) Call(name string, args ...interface{}) (err error) {
+	top := l.L.GetTop()
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		// undo...
+		l.L.SetTop(top)
+	}()
+
 	l.L.GetField(lua.LUA_GLOBALSINDEX, name)
 	for _, arg := range args {
-		switch t := arg.(type) {
-		case float32:
-			l.L.PushNumber(float64(arg.(float32)))
-		case float64:
-			l.L.PushNumber(arg.(float64))
-		case int:
-			l.L.PushInteger(int64(arg.(int)))
-		case int8:
-			l.L.PushInteger(int64(arg.(int8)))
-		case int16:
-			l.L.PushInteger(int64(arg.(int16)))
-		case int32:
-			l.L.PushInteger(int64(arg.(int32)))
-		case int64:
-			l.L.PushInteger(int64(arg.(int64)))
-		case string:
-			l.L.PushString(arg.(string))
-		case bool:
-			l.L.PushBoolean(arg.(bool))
-		case nil:
-			l.L.PushNil()
-		default:
-			return fmt.Errorf("Invalid type: %T", t)
+		if l.pushBasicType(arg) {
+			continue
+		}
+
+		if err = l.pushComplexType(arg); err != nil {
+			return
 		}
 	}
 	l.L.Call(len(args), 0)
-	return nil
+	return
 }

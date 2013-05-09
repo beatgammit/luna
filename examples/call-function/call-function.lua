@@ -10,3 +10,10 @@ function basicTypes(numInt, numFloat, tStr, tBool, tNil)
 	print(string.format("\t%s:%s", type(tBool), tostring(tBool)))
 	print(string.format("\t%s:%s", type(tNil), tostring(tNil)))
 end
+
+function struct(obj)
+	print("Called with struct")
+	for k,v in pairs(obj) do
+		print(string.format("\t[%s] = %s:%s", k, type(v), tostring(v)))
+	end
+end
