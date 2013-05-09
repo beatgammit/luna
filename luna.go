@@ -43,6 +43,11 @@ const (
 	AllLibs = LibBase | LibIO | LibMath | LibPackage | LibString | LibTable | LibOS
 )
 
+type TableKeyValue struct {
+	Key string
+	Val interface{}
+}
+
 type Luna struct {
 	L *lua.State
 }
@@ -138,6 +143,8 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 		if err = l.pushStruct(reflect.ValueOf(arg)); err != nil {
 			return
 		}
+	case reflect.Func:
+		l.L.PushGoFunction(wrapperGen(l, reflect.ValueOf(arg)))
 	case reflect.Ptr:
 		/*
 		if typ.Elem().Kind() == reflect.Struct {
@@ -174,5 +181,109 @@ func (l *Luna) Call(name string, args ...interface{}) (err error) {
 		}
 	}
 	l.L.Call(len(args), 0)
+	return
+}
+
+func isInt(kind reflect.Kind) bool {
+	return kind >= reflect.Int && kind <= reflect.Int64
+}
+
+func isUint(kind reflect.Kind) bool {
+	return kind >= reflect.Uint && kind <= reflect.Uint64
+}
+
+func isFloat(kind reflect.Kind) bool {
+	return kind == reflect.Float32 || kind == reflect.Float64
+}
+
+func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
+	typ := impl.Type()
+	params := make([]reflect.Value, typ.NumIn())
+	for i := range params {
+		params[i] = reflect.New(typ.In(i)).Elem()
+	}
+
+	return func(L *lua.State) int {
+		args := L.GetTop()
+		if args < len(params) {
+			panic(fmt.Sprintf("Args: %d, Params: %d", args, len(params)))
+		}
+		for i := 1; i <= args; i++ {
+			val := params[i-1]
+			typ := val.Type()
+
+			switch t := L.Type(i); t {
+			case lua.LUA_TNUMBER:
+				if isInt(typ.Kind()) {
+					val.SetInt(int64(L.ToNumber(i)))
+				} else if isUint(typ.Kind()) {
+					val.SetUint(uint64(L.ToNumber(i)))
+				} else if isFloat(typ.Kind()) {
+					val.SetFloat(L.ToNumber(i))
+				} else {
+					panic("Wrong type")
+				}
+			case lua.LUA_TBOOLEAN:
+				params[i-1].SetBool(L.ToBoolean(i))
+			case lua.LUA_TSTRING:
+				params[i-1].SetString(L.ToString(i))
+			case lua.LUA_TNIL:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TTABLE:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TFUNCTION:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TUSERDATA:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TTHREAD:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TLIGHTUSERDATA:
+				// TODO: implement
+				fallthrough
+			default:
+				// TODO: handle this better
+				panic(fmt.Sprintf("Unexpected type: %d", t))
+			}
+		}
+
+		ret := impl.Call(params)
+		for _, val := range ret {
+			if l.pushBasicType(val.Interface()) {
+				continue
+			}
+			if err := l.pushComplexType(val.Interface()); err != nil {
+				panic(err)
+			}
+		}
+		return len(ret)
+	}
+}
+
+func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) {
+	top := l.L.GetTop()
+	defer func() {
+		if err != nil {
+			l.L.SetTop(top)
+		}
+	}()
+
+	l.L.NewTable()
+	for _, kv := range members {
+		if l.pushBasicType(kv.Val) {
+			l.L.SetField(-2, kv.Key)
+			continue
+		}
+		if err = l.pushComplexType(kv.Val); err != nil {
+			return
+		}
+		l.L.SetField(-2, kv.Key)
+	}
+
+	l.L.SetGlobal(name)
 	return
 }
