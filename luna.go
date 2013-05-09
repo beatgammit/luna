@@ -1,6 +1,7 @@
 package luna
 
 import (
+	"fmt"
 	"github.com/aarzilli/golua/lua"
 )
 
@@ -79,4 +80,36 @@ func New(libs Lib) *Luna {
 // loads and executes a Lua source file
 func (l *Luna) LoadFile(path string) {
 	l.L.DoFile(path)
+}
+
+func (l *Luna) Call(name string, args ...interface{}) error {
+	l.L.GetField(lua.LUA_GLOBALSINDEX, name)
+	for _, arg := range args {
+		switch t := arg.(type) {
+		case float32:
+			l.L.PushNumber(float64(arg.(float32)))
+		case float64:
+			l.L.PushNumber(arg.(float64))
+		case int:
+			l.L.PushInteger(int64(arg.(int)))
+		case int8:
+			l.L.PushInteger(int64(arg.(int8)))
+		case int16:
+			l.L.PushInteger(int64(arg.(int16)))
+		case int32:
+			l.L.PushInteger(int64(arg.(int32)))
+		case int64:
+			l.L.PushInteger(int64(arg.(int64)))
+		case string:
+			l.L.PushString(arg.(string))
+		case bool:
+			l.L.PushBoolean(arg.(bool))
+		case nil:
+			l.L.PushNil()
+		default:
+			return fmt.Errorf("Invalid type: %T", t)
+		}
+	}
+	l.L.Call(len(args), 0)
+	return nil
 }
