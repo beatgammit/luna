@@ -5,6 +5,7 @@ import (
 	"github.com/aarzilli/golua/lua"
 	"reflect"
 	"log"
+	"io"
 )
 
 type Lib uint
@@ -31,11 +32,12 @@ type TableKeyValue struct {
 
 type Luna struct {
 	L *lua.State
+	lib Lib
 }
 
 // New creates a new Luna instance, opening all libs provided.
 func New(libs Lib) *Luna {
-	l := &Luna{lua.NewState()}
+	l := &Luna{lua.NewState(), libs}
 	if libs == AllLibs {
 		l.L.OpenLibs()
 	} else {
@@ -63,6 +65,24 @@ func New(libs Lib) *Luna {
 	}
 
 	return l
+}
+
+// printGen generates a print() function that writes to the given io.Writer.
+func printGen(w io.Writer) func (...string) {
+	return func(args ...string) {
+		// TODO: support interface{} parameters
+		var _args []interface{}
+		for _, arg := range args {
+			_args = append(_args, arg)
+		}
+		fmt.Fprintln(w, _args...)
+	}
+}
+
+// Stdout changes where print() writes to (default os.Stdout).
+// Note, this does **not** change anything in the io package.
+func (l *Luna) Stdout(w io.Writer) {
+	l.L.Register("print", wrapperGen(l, reflect.ValueOf(printGen(w))))
 }
 
 // loads and executes a Lua source file
@@ -249,11 +269,30 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 		if args < len(params) {
 			panic(fmt.Sprintf("Args: %d, Params: %d", args, len(params)))
 		}
-		for i := 1; i <= args; i++ {
-			l.set(params[i-1], i)
+
+		if typ.IsVariadic() {
+			params[len(params)-1] = params[len(params)-1].Slice(0, 0)
 		}
 
-		ret := impl.Call(params)
+		for i := 1; i <= args; i++ {
+			if i >= len(params) && typ.IsVariadic() {
+				val := reflect.New(params[i-1].Type().Elem()).Elem()
+				l.set(val, i)
+				params[i-1] = reflect.Append(params[i-1], val)
+			} else if i > len(params) {
+				// ignore extra args
+				break
+			} else {
+				l.set(params[i-1], i)
+			}
+		}
+
+		var ret []reflect.Value
+		if typ.IsVariadic() {
+			ret = impl.CallSlice(params)
+		} else {
+			ret = impl.Call(params)
+		}
 		for _, val := range ret {
 			if l.pushBasicType(val.Interface()) {
 				continue

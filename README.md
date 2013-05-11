@@ -36,3 +36,4 @@ Examples are found in `examples/`:
 * `helloworld`- loads a file; nothing fancy
 * `call-function`- make calls from Go -> Lua
 * `library`- define library to make calls from Lua -> Go
+* `stdout`- override stdout for calls to print()
