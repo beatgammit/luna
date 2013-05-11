@@ -21,6 +21,8 @@ const (
 )
 
 const (
+	NoLibs Lib = 0
+
 	// AllLibs represents all available Lua standard libraries
 	AllLibs = LibBase | LibIO | LibMath | LibPackage | LibString | LibTable | LibOS
 )
@@ -111,6 +113,16 @@ func (l *Luna) pushBasicType(arg interface{}) bool {
 		l.L.PushInteger(int64(t))
 	case int64:
 		l.L.PushInteger(t)
+	case uint:
+		l.L.PushInteger(int64(t))
+	case uint8:
+		l.L.PushInteger(int64(t))
+	case uint16:
+		l.L.PushInteger(int64(t))
+	case uint32:
+		l.L.PushInteger(int64(t))
+	case uint64:
+		l.L.PushInteger(int64(t))
 	case string:
 		l.L.PushString(t)
 	case bool:
@@ -141,9 +153,11 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 		l.L.SetField(-2, fieldTyp.Name)
 	}
 
+	/*
 	for i := 0; i < arg.NumMethod(); i++ {
 		//method := arg.Method(i)
 	}
+	*/
 	return nil
 }
 
@@ -206,7 +220,9 @@ func (l *Luna) tableToStruct(val reflect.Value, i int) error {
 		name := l.L.ToString(-2)
 		field := val.FieldByName(name)
 		if field.IsValid() {
-			l.set(field, -1)
+			if err := l.set(field, -1); err != nil {
+				return err
+			}
 		} else {
 			log.Println("Field doesn't exist:", name)
 		}
@@ -237,8 +253,7 @@ func (l *Luna) set(val reflect.Value, i int) error {
 		// TODO: implement
 		fallthrough
 	case lua.LUA_TTABLE:
-		l.tableToStruct(val, i)
-		fallthrough
+		return l.tableToStruct(val, i)
 	case lua.LUA_TFUNCTION:
 		// TODO: implement
 		fallthrough
