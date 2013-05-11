@@ -17,3 +17,7 @@ function struct(obj)
 		print(string.format("\t[%s] = %s:%s", k, type(v), tostring(v)))
 	end
 end
+
+function ret()
+	return 5, 3
+end

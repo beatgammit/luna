@@ -261,7 +261,7 @@ end
 	`
 	l.Load(file)
 
-	err := l.Call("noparams")
+	_, err := l.Call("noparams")
 	if err != nil {
 		t.Error("Error calling 'noparams':", err)
 	}
@@ -269,7 +269,7 @@ end
 	*c = (*c)[:0]
 
 	for _, i := range numbers {
-		err = l.Call("num", i)
+		_, err = l.Call("num", i)
 		if err != nil {
 			t.Error("Error calling 'num':", err)
 		}
@@ -277,35 +277,35 @@ end
 		*c = (*c)[:0]
 	}
 	for _, i := range floats {
-		err = l.Call("num", i)
+		_, err = l.Call("num", i)
 		if err != nil {
 			t.Error("Error calling 'num':", err)
 		}
 		test(floatExpected, *c)
 		*c = (*c)[:0]
 	}
-	err = l.Call("basiicTypes", "hello", true, nil)
+	_, err = l.Call("basiicTypes", "hello", true, nil)
 	if err != nil {
 		t.Error("Erroir calling 'basicTypes':", err)
 	}
 	test(basicTypesExpected, *c)
 	*c = (*c)[:0]
 
-	err = l.Call("struct", Data{3, 2})
+	_, err = l.Call("struct", Data{3, 2})
 	if err != nil {
 		t.Error("Error calling 'struct':", err)
 	}
 	test(structExpected, *c)
 	*c = (*c)[:0]
 
-	err = l.Call("struct", NestedData{Data{3,2}})
+	_, err = l.Call("struct", NestedData{Data{3,2}})
 	if err != nil {
 		t.Error("Error calling 'struct' with a nested struct:", err)
 	}
 	test(nestedStructExpected, *c)
 	*c = (*c)[:0]
 
-	err = l.Call("callback", callback)
+	_, err = l.Call("callback", callback)
 	if err != nil {
 		t.Error("Error calling 'callback':", err)
 	} else if callbackCalled != 1 {
@@ -320,12 +320,12 @@ func TestInvalidCall(t *testing.T) {
 	}
 	type empty struct {
 	}
-	err := l.Call("noexists", invalidStruct{})
+	_, err := l.Call("noexists", invalidStruct{})
 	if err == nil {
 		t.Error("Error expected")
 	}
 	// TODO: remove when pointers are implemented
-	err = l.Call("noexists", l)
+	_, err = l.Call("noexists", l)
 	if err == nil {
 		t.Error("Error expected")
 	}
@@ -385,5 +385,34 @@ end`)
 	if err != nil {
 		t.Fatal("Error loading library:", err)
 	}
-	err = l.Call("callMe")
+	_, err = l.Call("callMe")
+}
+
+func TestReturns(t *testing.T) {
+	l := New(LibBase)
+	l.Load(`
+function echo(v)
+	return v
+end
+function returnMult()
+	return 5, 3
+end`)
+
+	calls := []interface{}{
+		4.2, "hi", true, nil,
+	}
+
+	for _, val := range calls {
+		ret, err := l.Call("echo", val)
+		if err != nil {
+			t.Error("Error calling echo:", err)
+			continue
+		}
+
+		if len(ret) != 1 {
+			t.Errorf("Incorrect number of return vals. Expected '%d', Actual: '%d'", 1, len(ret))
+		} else if val != ret[0] {
+			t.Errorf("Expected: %v, Actual: %v", val, ret[0])
+		}
+	}
 }

@@ -184,8 +184,40 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	return
 }
 
+func (l *Luna) pop(i int) interface{} {
+	switch t := l.L.Type(i); t {
+	case lua.LUA_TNUMBER:
+		return l.L.ToNumber(i)
+	case lua.LUA_TBOOLEAN:
+		return l.L.ToBoolean(i)
+	case lua.LUA_TSTRING:
+		return l.L.ToString(i)
+	case lua.LUA_TNIL:
+		return nil
+		/*
+	case lua.LUA_TTABLE:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TFUNCTION:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TUSERDATA:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TTHREAD:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TLIGHTUSERDATA:
+		// TODO: implement
+		fallthrough
+		*/
+	default:
+		return fmt.Errorf("Unexpected type: %d", t)
+	}
+}
+
 // Call calls a Lua function named <string> with the provided arguments.
-func (l *Luna) Call(name string, args ...interface{}) (err error) {
+func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err error) {
 	top := l.L.GetTop()
 	defer func() {
 		if err == nil {
@@ -206,7 +238,12 @@ func (l *Luna) Call(name string, args ...interface{}) (err error) {
 			return
 		}
 	}
-	l.L.Call(len(args), 0)
+	l.L.Call(len(args), lua.LUA_MULTRET)
+	iret := l.L.GetTop()
+	for i := 1; i < iret+1; i++ {
+		ret = append(ret, l.pop(i))
+	}
+	l.L.SetTop(top)
 	return
 }
 
@@ -249,11 +286,12 @@ func (l *Luna) set(val reflect.Value, i int) error {
 		val.SetBool(l.L.ToBoolean(i))
 	case lua.LUA_TSTRING:
 		val.SetString(l.L.ToString(i))
+	case lua.LUA_TTABLE:
+		return l.tableToStruct(val, i)
+		/*
 	case lua.LUA_TNIL:
 		// TODO: implement
 		fallthrough
-	case lua.LUA_TTABLE:
-		return l.tableToStruct(val, i)
 	case lua.LUA_TFUNCTION:
 		// TODO: implement
 		fallthrough
@@ -266,6 +304,7 @@ func (l *Luna) set(val reflect.Value, i int) error {
 	case lua.LUA_TLIGHTUSERDATA:
 		// TODO: implement
 		fallthrough
+		*/
 	default:
 		return fmt.Errorf("Unexpected type: %d", t)
 	}
