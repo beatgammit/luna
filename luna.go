@@ -8,27 +8,6 @@ import (
 )
 
 type Lib uint
-func (l Lib) LibBase() bool {
-	return l & LibBase != 0
-}
-func (l Lib) LibIO() bool {
-	return l & LibIO != 0
-}
-func (l Lib) LibMath() bool {
-	return l & LibMath != 0
-}
-func (l Lib) LibPackage() bool {
-	return l & LibPackage != 0
-}
-func (l Lib) LibString() bool {
-	return l & LibString != 0
-}
-func (l Lib) LibTable() bool {
-	return l & LibTable != 0
-}
-func (l Lib) LibOS() bool {
-	return l & LibOS != 0
-}
 
 const (
 	LibBase Lib = 1 << iota
@@ -41,6 +20,7 @@ const (
 )
 
 const (
+	// AllLibs represents all available Lua standard libraries
 	AllLibs = LibBase | LibIO | LibMath | LibPackage | LibString | LibTable | LibOS
 )
 
@@ -53,30 +33,31 @@ type Luna struct {
 	L *lua.State
 }
 
+// New creates a new Luna instance, opening all libs provided.
 func New(libs Lib) *Luna {
 	l := &Luna{lua.NewState()}
 	if libs == AllLibs {
 		l.L.OpenLibs()
 	} else {
-		if libs.LibBase() {
+		if libs & LibBase != 0 {
 			l.L.OpenBase()
 		}
-		if libs.LibIO() {
+		if libs & LibIO != 0 {
 			l.L.OpenIO()
 		}
-		if libs.LibMath() {
+		if libs & LibMath != 0 {
 			l.L.OpenMath()
 		}
-		if libs.LibPackage() {
+		if libs & LibPackage != 0 {
 			l.L.OpenPackage()
 		}
-		if libs.LibString() {
+		if libs & LibString != 0 {
 			l.L.OpenString()
 		}
-		if libs.LibTable() {
+		if libs & LibTable != 0 {
 			l.L.OpenTable()
 		}
-		if libs.LibOS() {
+		if libs & LibOS != 0 {
 			l.L.OpenOS()
 		}
 	}
@@ -169,6 +150,7 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	return
 }
 
+// Call calls a Lua function named <string> with the provided arguments.
 func (l *Luna) Call(name string, args ...interface{}) (err error) {
 	top := l.L.GetTop()
 	defer func() {
@@ -284,6 +266,8 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 	}
 }
 
+// CreateLibrary registers a library <name> with the given members.
+// An error is returned if one of the members is of an unsupported type.
 func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) {
 	top := l.L.GetTop()
 	defer func() {
