@@ -18,6 +18,18 @@ function struct(obj)
 	end
 end
 
+function slice(arr)
+	print("Called with slice")
+	for k,v in pairs(arr) do
+		if type(v) == "table" then
+			print("Printing struct at [%d]", k)
+			struct(v)
+		else
+			print(string.format("\t[%d] = %s:%s", k, type(v), tostring(v)))
+		end
+	end
+end
+
 function ret()
 	return 5, 3
 end

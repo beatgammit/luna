@@ -25,6 +25,14 @@ func main() {
 	if err != nil {
 		fmt.Println("Error calling 'struct':", err)
 	}
+	_, err = l.Call("slice", []int{3, 2})
+	if err != nil {
+		fmt.Println("Error calling 'slice':", err)
+	}
+	_, err = l.Call("slice", []Data{{3, 2}})
+	if err != nil {
+		fmt.Println("Error calling 'slice':", err)
+	}
 	ret, err := l.Call("ret")
 	if err != nil {
 		fmt.Println("Error calling 'ret':", err)

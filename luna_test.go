@@ -224,6 +224,17 @@ func TestCall(t *testing.T) {
 		"[A] = number:3\n",
 		"[B] = number:2\n",
 	}
+	sliceData := []int{3, 5}
+	sliceExpected := []string{
+		"Called with slice\n",
+		"[0] = number:3\n",
+		"[1] = number:5\n",
+	}
+	complexSliceData := []Data{{3, 5}}
+	complexSliceExpected := []string{
+		"Called with complex slice\n",
+		"[0] = table:{A=3,B=5}\n",
+	}
 	nestedStructExpected := []string{
 		"Called with struct\n",
 		"[A] = table:{A=3,B=2}\n",
@@ -255,6 +266,19 @@ function struct(obj)
 	end
 end
 
+function slice(arr)
+	print("Called with complex slice")
+	for k,v in pairs(arr) do
+		print(string.format("[%d] = %s:%s", k, type(v), tostring({A=v.A,B=v.B})))
+	end
+end
+
+function slice(arr)
+	print("Called with slice")
+	for k,v in pairs(arr) do
+		print(string.format("[%d] = %s:%s", k, type(v), tostring(v)))
+	end
+end
 function callback(cb)
   cb()
 end
@@ -305,6 +329,20 @@ end
 	test(nestedStructExpected, *c)
 	*c = (*c)[:0]
 
+	_, err = l.Call("slice", sliceData)
+	if err != nil {
+		t.Error("Error calling 'slice' with a nested struct:", err)
+	}
+	test(sliceExpected, *c)
+	*c = (*c)[:0]
+
+	_, err = l.Call("complexSlice", complexSliceData)
+	if err != nil {
+		t.Error("Error calling 'complexSlice' with a nested struct:", err)
+	}
+	test(complexSliceExpected, *c)
+	*c = (*c)[:0]
+
 	_, err = l.Call("callback", callback)
 	if err != nil {
 		t.Error("Error calling 'callback':", err)
@@ -326,6 +364,11 @@ func TestInvalidCall(t *testing.T) {
 	}
 	// TODO: remove when pointers are implemented
 	_, err = l.Call("noexists", l)
+	if err == nil {
+		t.Error("Error expected")
+	}
+
+	_, err = l.Call("noexists", []chan bool{make(chan bool)})
 	if err == nil {
 		t.Error("Error expected")
 	}

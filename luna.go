@@ -161,6 +161,23 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 	return nil
 }
 
+func (l *Luna) pushSlice(arg reflect.Value) error {
+	l.L.NewTable()
+	for i := 0; i < arg.Len(); i++ {
+		l.L.PushInteger(int64(i))
+		if l.pushBasicType(arg.Index(i).Interface()) {
+			l.L.SetTable(-3)
+			continue
+		}
+
+		if err := l.pushComplexType(arg.Index(i).Interface()); err != nil {
+			return err
+		}
+		l.L.SetTable(-3)
+	}
+	return nil
+}
+
 func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	typ := reflect.TypeOf(arg)
 	switch typ.Kind() {
@@ -170,6 +187,8 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 		}
 	case reflect.Func:
 		l.L.PushGoFunction(wrapperGen(l, reflect.ValueOf(arg)))
+	case reflect.Array, reflect.Slice:
+		return l.pushSlice(reflect.ValueOf(arg))
 	case reflect.Ptr:
 		/*
 		if typ.Elem().Kind() == reflect.Struct {
