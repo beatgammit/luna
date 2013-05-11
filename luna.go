@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aarzilli/golua/lua"
 	"reflect"
+	"log"
 )
 
 type Lib uint
@@ -88,6 +89,11 @@ func (l *Luna) LoadFile(path string) {
 	l.L.DoFile(path)
 }
 
+// loads and executes Lua source
+func (l *Luna) Load(src string) {
+	l.L.DoString(src)
+}
+
 func (l *Luna) pushBasicType(arg interface{}) bool {
 	switch t := arg.(type) {
 	case float32:
@@ -132,6 +138,10 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 			return err
 		}
 		l.L.SetField(-2, fieldTyp.Name)
+	}
+
+	for i := 0; i < arg.NumMethod(); i++ {
+		//method := arg.Method(i)
 	}
 	return nil
 }
@@ -184,16 +194,65 @@ func (l *Luna) Call(name string, args ...interface{}) (err error) {
 	return
 }
 
-func isInt(kind reflect.Kind) bool {
-	return kind >= reflect.Int && kind <= reflect.Int64
+func (l *Luna) tableToStruct(val reflect.Value, i int) error {
+	l.L.PushNil()
+	for l.L.Next(i) != 0 {
+		// TODO: ignore bad values?
+		if !l.L.IsString(-2) {
+			return fmt.Errorf("Keys must be strings")
+		}
+		name := l.L.ToString(-2)
+		field := val.FieldByName(name)
+		if field.IsValid() {
+			l.set(field, -1)
+		} else {
+			log.Println("Field doesn't exist:", name)
+		}
+		l.L.Pop(1)
+	}
+	l.L.Pop(1)
+	return nil
 }
 
-func isUint(kind reflect.Kind) bool {
-	return kind >= reflect.Uint && kind <= reflect.Uint64
-}
-
-func isFloat(kind reflect.Kind) bool {
-	return kind == reflect.Float32 || kind == reflect.Float64
+func (l *Luna) set(val reflect.Value, i int) error {
+	typ := val.Type()
+	switch t := l.L.Type(i); t {
+	case lua.LUA_TNUMBER:
+		if typ.Kind() >= reflect.Int && typ.Kind() <= reflect.Int64 {
+			val.SetInt(int64(l.L.ToNumber(i)))
+		} else if typ.Kind() >= reflect.Uint && typ.Kind() <= reflect.Uint64 {
+			val.SetUint(uint64(l.L.ToNumber(i)))
+		} else if typ.Kind() == reflect.Float32 || typ.Kind() == reflect.Float64 {
+			val.SetFloat(l.L.ToNumber(i))
+		} else {
+			return fmt.Errorf("Wrong type")
+		}
+	case lua.LUA_TBOOLEAN:
+		val.SetBool(l.L.ToBoolean(i))
+	case lua.LUA_TSTRING:
+		val.SetString(l.L.ToString(i))
+	case lua.LUA_TNIL:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TTABLE:
+		l.tableToStruct(val, i)
+		fallthrough
+	case lua.LUA_TFUNCTION:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TUSERDATA:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TTHREAD:
+		// TODO: implement
+		fallthrough
+	case lua.LUA_TLIGHTUSERDATA:
+		// TODO: implement
+		fallthrough
+	default:
+		return fmt.Errorf("Unexpected type: %d", t)
+	}
+	return nil
 }
 
 func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
@@ -209,46 +268,7 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 			panic(fmt.Sprintf("Args: %d, Params: %d", args, len(params)))
 		}
 		for i := 1; i <= args; i++ {
-			val := params[i-1]
-			typ := val.Type()
-
-			switch t := L.Type(i); t {
-			case lua.LUA_TNUMBER:
-				if isInt(typ.Kind()) {
-					val.SetInt(int64(L.ToNumber(i)))
-				} else if isUint(typ.Kind()) {
-					val.SetUint(uint64(L.ToNumber(i)))
-				} else if isFloat(typ.Kind()) {
-					val.SetFloat(L.ToNumber(i))
-				} else {
-					panic("Wrong type")
-				}
-			case lua.LUA_TBOOLEAN:
-				params[i-1].SetBool(L.ToBoolean(i))
-			case lua.LUA_TSTRING:
-				params[i-1].SetString(L.ToString(i))
-			case lua.LUA_TNIL:
-				// TODO: implement
-				fallthrough
-			case lua.LUA_TTABLE:
-				// TODO: implement
-				fallthrough
-			case lua.LUA_TFUNCTION:
-				// TODO: implement
-				fallthrough
-			case lua.LUA_TUSERDATA:
-				// TODO: implement
-				fallthrough
-			case lua.LUA_TTHREAD:
-				// TODO: implement
-				fallthrough
-			case lua.LUA_TLIGHTUSERDATA:
-				// TODO: implement
-				fallthrough
-			default:
-				// TODO: handle this better
-				panic(fmt.Sprintf("Unexpected type: %d", t))
-			}
+			l.set(params[i-1], i)
 		}
 
 		ret := impl.Call(params)

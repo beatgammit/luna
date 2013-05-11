@@ -5,6 +5,10 @@ import (
 	"../.."
 )
 
+type Data struct {
+	A, B int
+}
+
 func Empty() {
 	fmt.Println("Empty called")
 }
@@ -18,6 +22,10 @@ func BasicRet() (int, float64, string, bool) {
 	return 3, 4.2, "hello", false
 }
 
+func StructParam(d Data) {
+	fmt.Printf("StructParam called: %+v\n", d)
+}
+
 func main() {
 	l := luna.New(luna.AllLibs)
 
@@ -25,6 +33,7 @@ func main() {
 		{"Empty", Empty},
 		{"BasicParams", BasicParams},
 		{"BasicRet", BasicRet},
+		{"StructParam", StructParam},
 	}
 	l.CreateLibrary("testlib", libMembers...)
 
