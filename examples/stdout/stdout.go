@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"../.."
+	"luna"
 )
 
 type Data struct {
@@ -20,7 +20,7 @@ func main() {
 	l.LoadFile("stdout.lua")
 	l.Stdout(printer("test: "))
 
-	err := l.Call("hello")
+	_, err := l.Call("hello")
 	if err != nil {
 		fmt.Println("Error calling 'hello':", err)
 	}

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"../.."
+	"luna"
 )
 
 type Data struct {

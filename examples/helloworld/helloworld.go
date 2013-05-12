@@ -1,7 +1,7 @@
 package main
 
 import (
-	"../.."
+	"luna"
 )
 
 func main() {
