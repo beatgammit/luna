@@ -28,6 +28,8 @@ install
 
     go get github.com/beatgammit/luna
 
+Luna uses [golua](https://github.com/aarzilli/golua), and that looks for a shared object called lua5.1 on Linux.
+
 examples
 ========
 
