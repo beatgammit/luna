@@ -1,7 +1,7 @@
 package main
 
 import (
-	"luna"
+	"github.com/beatgammit/luna"
 )
 
 func main() {

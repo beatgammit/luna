@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"luna"
+	"github.com/beatgammit/luna"
 )
 
 type Data struct {
