@@ -1,4 +1,4 @@
-luna
+luna [![Build Status](https://travis-ci.org/beatgammit/luna.png)](https://travis-ci.org/beatgammit/luna)
 ====
 
 Luna is more than a wrapper, it's what a Lua API should be.
