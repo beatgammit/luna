@@ -233,6 +233,7 @@ func (l *Luna) pop(i int) interface{} {
 	default:
 		return fmt.Errorf("Unexpected type: %d", t)
 	}
+	return nil
 }
 
 // Call calls a Lua function named <string> with the provided arguments.
