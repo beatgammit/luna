@@ -64,7 +64,9 @@ func TestLoad(t *testing.T) {
 	c := new(stdout)
 	l := New(NoLibs)
 	l.Stdout(c)
-	l.Load(src)
+	if err := l.Load(src); err != nil {
+		t.Error("Error loading lua code:", err)
+	}
 
 	if len(*c) != 1 {
 		t.Error("Should have exactly one message", c)
@@ -81,13 +83,16 @@ func TestLoadFile(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer os.Remove(fname)
 	f.Write([]byte("print(\""+msg+"\")"))
 	f.Close()
 
 	c := new(stdout)
 	l := New(NoLibs)
 	l.Stdout(c)
-	l.LoadFile(fname)
+	if err := l.LoadFile(fname); err != nil {
+		t.Error("Error loading lua script:", err)
+	}
 
 	if len(*c) != 1 {
 		t.Error("Should have exactly one message", c)
@@ -141,7 +146,9 @@ func TestCreateLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error creating library:", err)
 	}
-	l.Load("testlib.fun(testlib.val)")
+	if err := l.Load("testlib.fun(testlib.val)"); err != nil {
+		t.Error("Error loading test lua code:", err)
+	}
 	if funcCalled != 1 {
 		t.Error("Library function not called exactly 1 time:", funcCalled)
 	}
@@ -283,7 +290,9 @@ function callback(cb)
   cb()
 end
 	`
-	l.Load(file)
+	if err := l.Load(file); err != nil {
+		t.Error("Error loading test lua code:", err)
+	}
 
 	_, err := l.Call("noparams")
 	if err != nil {
@@ -396,7 +405,9 @@ func TestLuaTableToGoStruct(t *testing.T) {
 	}
 
 	l := New(LibBase)
-	l.Load("function callMe() testlib.func({A=3,B=2,C=4.2,D=true,E='hello',F=nil,G=callMe,Z='hi'}) end")
+	if err := l.Load("function callMe() testlib.func({A=3,B=2,C=4.2,D=true,E='hello',F=nil,G=callMe,Z='hi'}) end"); err != nil {
+		t.Error("Error loading test code:", err)
+	}
 	err := l.CreateLibrary("testlib", libMembers...)
 	if err != nil {
 		t.Fatal("Error loading library:", err)
@@ -419,11 +430,14 @@ func TestInvalidLuaToGo(t *testing.T) {
 	}
 
 	l := New(LibBase)
-	l.Load(`
+	code := `
 function callMe()
 	testlib.func(5)
 	testlib.func(5, 6)
-end`)
+end`
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+}
 	err := l.CreateLibrary("testlib", libMembers...)
 	if err != nil {
 		t.Fatal("Error loading library:", err)
@@ -433,13 +447,16 @@ end`)
 
 func TestReturns(t *testing.T) {
 	l := New(LibBase)
-	l.Load(`
+	code := `
 function echo(v)
 	return v
 end
 function returnMult()
 	return 5, 3
-end`)
+end`
+if err := l.Load(code); err != nil {
+	t.Error("Error loading test code:", err)
+}
 
 	calls := []interface{}{
 		4.2, "hi", true, nil,

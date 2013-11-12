@@ -88,13 +88,13 @@ func (l *Luna) Stdout(w io.Writer) {
 }
 
 // loads and executes a Lua source file
-func (l *Luna) LoadFile(path string) {
-	l.L.DoFile(path)
+func (l *Luna) LoadFile(path string) error {
+	return l.L.DoFile(path)
 }
 
 // loads and executes Lua source
-func (l *Luna) Load(src string) {
-	l.L.DoString(src)
+func (l *Luna) Load(src string) error {
+	return l.L.DoString(src)
 }
 
 func (l *Luna) pushBasicType(arg interface{}) bool {
