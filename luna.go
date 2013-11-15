@@ -163,8 +163,10 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 
 func (l *Luna) pushSlice(arg reflect.Value) error {
 	l.L.NewTable()
+	// for i := arg.Len() - 1; i >= 0; i-- {
 	for i := 0; i < arg.Len(); i++ {
-		l.L.PushInteger(int64(i))
+		// lua has 1-based arrays
+		l.L.PushInteger(int64(i + 1))
 		if l.pushBasicType(arg.Index(i).Interface()) {
 			l.L.SetTable(-3)
 			continue
@@ -258,10 +260,12 @@ func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err er
 			return
 		}
 	}
-	l.L.Call(len(args), lua.LUA_MULTRET)
-	iret := l.L.GetTop()
-	for i := 1; i < iret+1; i++ {
-		ret = append(ret, l.pop(i))
+	err = l.L.Call(len(args), lua.LUA_MULTRET)
+	if err == nil {
+		iret := l.L.GetTop()
+		for i := 1; i < iret+1; i++ {
+			ret = append(ret, l.pop(i))
+		}
 	}
 	l.L.SetTop(top)
 	return

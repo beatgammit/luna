@@ -224,7 +224,7 @@ func TestCall(t *testing.T) {
 	basicTypesExpected := []string{
 		"Called with basic types:\n",
 		"string:hello\n",
-		"bool:true\n",
+		"boolean:true\n",
 		"nil:nil\n",
 	}
 	structExpected := []string{
@@ -232,23 +232,25 @@ func TestCall(t *testing.T) {
 		"[A] = number:3\n",
 		"[B] = number:2\n",
 	}
-	sliceData := []int{3, 5}
+	sliceData := []int{3, 5, 7, 9}
 	sliceExpected := []string{
 		"Called with slice\n",
-		"[0] = number:3\n",
-		"[1] = number:5\n",
+		"[1] = number:3\n",
+		"[2] = number:5\n",
+		"[3] = number:7\n",
+		"[4] = number:9\n",
 	}
 	complexSliceData := []Data{{3, 5}}
 	complexSliceExpected := []string{
-		"Called with complex slice\n",
-		"[0] = table:{A=3,B=5}\n",
+		"Called with slice\n",
+		"[1] = table:{A=3,B=5,}\n",
 	}
 	nestedStructExpected := []string{
 		"Called with struct\n",
-		"[A] = table:{A=3,B=2}\n",
+		"[A] = table:{A=3,B=2,}\n",
 	}
 
-	l := New(LibBase)
+	l := New(LibBase | LibString | LibTable)
 	c := new(stdout)
 	l.Stdout(c)
 	file := `
@@ -256,8 +258,21 @@ function noparams()
 	print("Called without params")
 end
 
+function float(num)
+  print(string.format("Called with float: %s:%1.1f", type(num), num))
+end
+
 function num(num)
-	print(string.format("Called with number: %s:%s", type(numInt), numInt))
+	print(string.format("Called with number: %s:%s", type(num), num))
+end
+
+function table_to_string(tab)
+  local str = "{"
+  for k,v in pairs(tab) do
+    str = str..k.."="..tostring(v)..","
+  end
+  str = str.."}"
+  return str
 end
 
 function basicTypes(tStr, tBool, tNil)
@@ -269,24 +284,31 @@ end
 
 function struct(obj)
 	print("Called with struct")
-	for k,v in pairs(obj) do
-		print(string.format("[%s] = %s:%s", k, type(v), tostring(v)))
-	end
+  object(obj)
 end
 
-function slice(arr)
-	print("Called with complex slice")
-	for k,v in pairs(arr) do
-		print(string.format("[%d] = %s:%s", k, type(v), tostring({A=v.A,B=v.B})))
+
+function object(obj)
+	for k,v in pairs(obj) do
+    if type(v) == "table" then
+      print(string.format("[%s] = %s:%s", k, type(v), table_to_string(v)))
+    else
+      print(string.format("[%s] = %s:%s", k, type(v), tostring(v)))
+    end
 	end
 end
 
 function slice(arr)
 	print("Called with slice")
 	for k,v in pairs(arr) do
-		print(string.format("[%d] = %s:%s", k, type(v), tostring(v)))
+    if type(v) == "table" then
+      print(string.format("[%d] = %s:%s", k, type(v), table_to_string(v)))
+    else
+      print(string.format("[%d] = %s:%s", k, type(v), tostring(v)))
+    end
 	end
 end
+
 function callback(cb)
   cb()
 end
@@ -311,16 +333,16 @@ end
 		*c = (*c)[:0]
 	}
 	for _, i := range floats {
-		_, err = l.Call("num", i)
+		_, err = l.Call("float", i)
 		if err != nil {
-			t.Error("Error calling 'num':", err)
+			t.Error("Error calling 'float':", err)
 		}
 		test(floatExpected, *c)
 		*c = (*c)[:0]
 	}
-	_, err = l.Call("basiicTypes", "hello", true, nil)
+	_, err = l.Call("basicTypes", "hello", true, nil)
 	if err != nil {
-		t.Error("Erroir calling 'basicTypes':", err)
+		t.Error("Error calling 'basicTypes':", err)
 	}
 	test(basicTypesExpected, *c)
 	*c = (*c)[:0]
@@ -341,14 +363,14 @@ end
 
 	_, err = l.Call("slice", sliceData)
 	if err != nil {
-		t.Error("Error calling 'slice' with a nested struct:", err)
+		t.Error("Error calling 'slice':", err)
 	}
 	test(sliceExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("complexSlice", complexSliceData)
+	_, err = l.Call("slice", complexSliceData)
 	if err != nil {
-		t.Error("Error calling 'complexSlice' with a nested struct:", err)
+		t.Error("Error calling 'slice' with a nested struct:", err)
 	}
 	test(complexSliceExpected, *c)
 	*c = (*c)[:0]
