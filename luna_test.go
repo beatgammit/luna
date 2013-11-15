@@ -249,6 +249,12 @@ func TestCall(t *testing.T) {
 		"Called with struct\n",
 		"[A] = table:{A=3,B=2,}\n",
 	}
+	mapData := map[string]interface{}{"A": 3, "B": "hello"}
+	mapExpected := []string{
+		"Called with map\n",
+		"[A] = number:3\n",
+		"[B] = string:hello\n",
+	}
 
 	l := New(LibBase | LibString | LibTable)
 	c := new(stdout)
@@ -287,6 +293,10 @@ function struct(obj)
   object(obj)
 end
 
+function map(obj)
+  print("Called with map")
+  object(obj)
+end
 
 function object(obj)
 	for k,v in pairs(obj) do
@@ -359,6 +369,13 @@ end
 		t.Error("Error calling 'struct' with a nested struct:", err)
 	}
 	test(nestedStructExpected, *c)
+	*c = (*c)[:0]
+
+	_, err = l.Call("map", mapData)
+	if err != nil {
+		t.Error("Error calling 'map':", err)
+	}
+	test(mapExpected, *c)
 	*c = (*c)[:0]
 
 	_, err = l.Call("slice", sliceData)

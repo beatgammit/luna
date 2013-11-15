@@ -180,6 +180,26 @@ func (l *Luna) pushSlice(arg reflect.Value) error {
 	return nil
 }
 
+func (l *Luna) pushMap(arg reflect.Value) error {
+	l.L.NewTable()
+	typ := arg.Type()
+	if typ.Key().Kind() != reflect.String {
+		return fmt.Errorf("map key type: %s invalid, must be string", typ.Key())
+	}
+	for _, k := range arg.MapKeys() {
+		v := arg.MapIndex(k)
+		if l.pushBasicType(v.Interface()) {
+			l.L.SetField(-2, k.Interface().(string))
+			continue
+		}
+		if err := l.pushComplexType(v.Interface()); err != nil {
+			return err
+		}
+		l.L.SetField(-2, k.Interface().(string))
+	}
+	return nil
+}
+
 func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	typ := reflect.TypeOf(arg)
 	switch typ.Kind() {
@@ -191,6 +211,8 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 		l.L.PushGoFunction(wrapperGen(l, reflect.ValueOf(arg)))
 	case reflect.Array, reflect.Slice:
 		return l.pushSlice(reflect.ValueOf(arg))
+	case reflect.Map:
+		return l.pushMap(reflect.ValueOf(arg))
 	case reflect.Ptr:
 		/*
 			if typ.Elem().Kind() == reflect.Struct {
