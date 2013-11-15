@@ -6,43 +6,43 @@ import (
 )
 
 func (l *Luna) loaded(libs Lib) bool {
-	if libs & LibBase != 0 {
+	if libs&LibBase != 0 {
 		l.L.GetGlobal("_VERSION")
 		if l.L.IsNil(-1) {
 			return false
 		}
 	}
-	if libs & LibIO != 0 {
+	if libs&LibIO != 0 {
 		l.L.GetGlobal("io")
 		if l.L.IsNil(-1) {
 			return false
 		}
 	}
-	if libs & LibMath != 0 {
+	if libs&LibMath != 0 {
 		l.L.GetGlobal("math")
 		if l.L.IsNil(-1) {
 			return false
 		}
 	}
-	if libs & LibPackage != 0 {
+	if libs&LibPackage != 0 {
 		l.L.GetGlobal("package")
 		if l.L.IsNil(-1) {
 			return false
 		}
 	}
-	if libs & LibString != 0 {
+	if libs&LibString != 0 {
 		l.L.GetGlobal("string")
 		if l.L.IsNil(-1) {
 			return false
 		}
 	}
-	if libs & LibTable != 0 {
+	if libs&LibTable != 0 {
 		l.L.GetGlobal("table")
 		if l.L.IsNil(-1) {
 			return false
 		}
 	}
-	if libs & LibOS != 0 {
+	if libs&LibOS != 0 {
 		l.L.GetGlobal("os")
 		if l.L.IsNil(-1) {
 			return false
@@ -52,6 +52,7 @@ func (l *Luna) loaded(libs Lib) bool {
 }
 
 type stdout []string
+
 func (msgs *stdout) Write(msg []byte) (int, error) {
 	*msgs = append(*msgs, string(msg))
 	return len(msg), nil
@@ -84,7 +85,7 @@ func TestLoadFile(t *testing.T) {
 		panic(err)
 	}
 	defer os.Remove(fname)
-	f.Write([]byte("print(\""+msg+"\")"))
+	f.Write([]byte("print(\"" + msg + "\")"))
 	f.Close()
 
 	c := new(stdout)
@@ -114,7 +115,7 @@ func TestNew(t *testing.T) {
 
 	for i, l := 0, len(libs); i < l-1; i++ {
 		lib := libs[i]
-		for j := i+1; j < l; j++ {
+		for j := i + 1; j < l; j++ {
 			lib |= libs[j]
 		}
 		libs = append(libs, lib)
@@ -132,7 +133,7 @@ func TestCreateLibrary(t *testing.T) {
 	var funcCalled int
 	var paramValue int
 	paramPassed := 5
-	fun := func (val int) {
+	fun := func(val int) {
 		funcCalled++
 		paramValue = val
 	}
@@ -331,7 +332,7 @@ end
 	test(structExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("struct", NestedData{Data{3,2}})
+	_, err = l.Call("struct", NestedData{Data{3, 2}})
 	if err != nil {
 		t.Error("Error calling 'struct' with a nested struct:", err)
 	}
@@ -394,7 +395,7 @@ func TestLuaTableToGoStruct(t *testing.T) {
 
 	var called int
 	var data Data
-	expected := Data{3,2, 4.2, true, "hello"}
+	expected := Data{3, 2, 4.2, true, "hello"}
 	test := func(d Data) {
 		called++
 		data = d
@@ -437,7 +438,7 @@ function callMe()
 end`
 	if err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
-}
+	}
 	err := l.CreateLibrary("testlib", libMembers...)
 	if err != nil {
 		t.Fatal("Error loading library:", err)
@@ -454,9 +455,9 @@ end
 function returnMult()
 	return 5, 3
 end`
-if err := l.Load(code); err != nil {
-	t.Error("Error loading test code:", err)
-}
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+	}
 
 	calls := []interface{}{
 		4.2, "hi", true, nil,

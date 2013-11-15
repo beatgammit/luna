@@ -10,6 +10,7 @@ type Data struct {
 }
 
 type printer string
+
 func (p printer) Write(msg []byte) (int, error) {
 	fmt.Print(p, string(msg))
 	return len(msg), nil

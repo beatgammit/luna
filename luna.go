@@ -3,9 +3,9 @@ package luna
 import (
 	"fmt"
 	"github.com/aarzilli/golua/lua"
-	"reflect"
-	"log"
 	"io"
+	"log"
+	"reflect"
 )
 
 type Lib uint
@@ -33,7 +33,7 @@ type TableKeyValue struct {
 }
 
 type Luna struct {
-	L *lua.State
+	L   *lua.State
 	lib Lib
 }
 
@@ -43,25 +43,25 @@ func New(libs Lib) *Luna {
 	if libs == AllLibs {
 		l.L.OpenLibs()
 	} else {
-		if libs & LibBase != 0 {
+		if libs&LibBase != 0 {
 			l.L.OpenBase()
 		}
-		if libs & LibIO != 0 {
+		if libs&LibIO != 0 {
 			l.L.OpenIO()
 		}
-		if libs & LibMath != 0 {
+		if libs&LibMath != 0 {
 			l.L.OpenMath()
 		}
-		if libs & LibPackage != 0 {
+		if libs&LibPackage != 0 {
 			l.L.OpenPackage()
 		}
-		if libs & LibString != 0 {
+		if libs&LibString != 0 {
 			l.L.OpenString()
 		}
-		if libs & LibTable != 0 {
+		if libs&LibTable != 0 {
 			l.L.OpenTable()
 		}
-		if libs & LibOS != 0 {
+		if libs&LibOS != 0 {
 			l.L.OpenOS()
 		}
 	}
@@ -70,7 +70,7 @@ func New(libs Lib) *Luna {
 }
 
 // printGen generates a print() function that writes to the given io.Writer.
-func printGen(w io.Writer) func (...string) {
+func printGen(w io.Writer) func(...string) {
 	return func(args ...string) {
 		// TODO: support interface{} parameters
 		var _args []interface{}
@@ -154,9 +154,9 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 	}
 
 	/*
-	for i := 0; i < arg.NumMethod(); i++ {
-		//method := arg.Method(i)
-	}
+		for i := 0; i < arg.NumMethod(); i++ {
+			//method := arg.Method(i)
+		}
 	*/
 	return nil
 }
@@ -191,10 +191,10 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 		return l.pushSlice(reflect.ValueOf(arg))
 	case reflect.Ptr:
 		/*
-		if typ.Elem().Kind() == reflect.Struct {
-			l.L.PushGoStruct(arg)
-			break
-		}
+			if typ.Elem().Kind() == reflect.Struct {
+				l.L.PushGoStruct(arg)
+				break
+			}
 		*/
 		fallthrough
 	default:
@@ -214,21 +214,21 @@ func (l *Luna) pop(i int) interface{} {
 	case lua.LUA_TNIL:
 		return nil
 		/*
-	case lua.LUA_TTABLE:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TFUNCTION:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TUSERDATA:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TTHREAD:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TLIGHTUSERDATA:
-		// TODO: implement
-		fallthrough
+			case lua.LUA_TTABLE:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TFUNCTION:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TUSERDATA:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TTHREAD:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TLIGHTUSERDATA:
+				// TODO: implement
+				fallthrough
 		*/
 	default:
 		return fmt.Errorf("Unexpected type: %d", t)
@@ -309,21 +309,21 @@ func (l *Luna) set(val reflect.Value, i int) error {
 	case lua.LUA_TTABLE:
 		return l.tableToStruct(val, i)
 		/*
-	case lua.LUA_TNIL:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TFUNCTION:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TUSERDATA:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TTHREAD:
-		// TODO: implement
-		fallthrough
-	case lua.LUA_TLIGHTUSERDATA:
-		// TODO: implement
-		fallthrough
+			case lua.LUA_TNIL:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TFUNCTION:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TUSERDATA:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TTHREAD:
+				// TODO: implement
+				fallthrough
+			case lua.LUA_TLIGHTUSERDATA:
+				// TODO: implement
+				fallthrough
 		*/
 	default:
 		return fmt.Errorf("Unexpected type: %d", t)
