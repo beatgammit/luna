@@ -163,8 +163,10 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 
 func (l *Luna) pushSlice(arg reflect.Value) error {
 	l.L.NewTable()
+	// for i := arg.Len() - 1; i >= 0; i-- {
 	for i := 0; i < arg.Len(); i++ {
-		l.L.PushInteger(int64(i))
+		// lua has 1-based arrays
+		l.L.PushInteger(int64(i + 1))
 		if l.pushBasicType(arg.Index(i).Interface()) {
 			l.L.SetTable(-3)
 			continue
@@ -174,6 +176,26 @@ func (l *Luna) pushSlice(arg reflect.Value) error {
 			return err
 		}
 		l.L.SetTable(-3)
+	}
+	return nil
+}
+
+func (l *Luna) pushMap(arg reflect.Value) error {
+	l.L.NewTable()
+	typ := arg.Type()
+	if typ.Key().Kind() != reflect.String {
+		return fmt.Errorf("map key type: %s invalid, must be string", typ.Key())
+	}
+	for _, k := range arg.MapKeys() {
+		v := arg.MapIndex(k)
+		if l.pushBasicType(v.Interface()) {
+			l.L.SetField(-2, k.Interface().(string))
+			continue
+		}
+		if err := l.pushComplexType(v.Interface()); err != nil {
+			return err
+		}
+		l.L.SetField(-2, k.Interface().(string))
 	}
 	return nil
 }
@@ -189,6 +211,8 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 		l.L.PushGoFunction(wrapperGen(l, reflect.ValueOf(arg)))
 	case reflect.Array, reflect.Slice:
 		return l.pushSlice(reflect.ValueOf(arg))
+	case reflect.Map:
+		return l.pushMap(reflect.ValueOf(arg))
 	case reflect.Ptr:
 		/*
 			if typ.Elem().Kind() == reflect.Struct {
@@ -258,10 +282,12 @@ func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err er
 			return
 		}
 	}
-	l.L.Call(len(args), lua.LUA_MULTRET)
-	iret := l.L.GetTop()
-	for i := 1; i < iret+1; i++ {
-		ret = append(ret, l.pop(i))
+	err = l.L.Call(len(args), lua.LUA_MULTRET)
+	if err == nil {
+		iret := l.L.GetTop()
+		for i := 1; i < iret+1; i++ {
+			ret = append(ret, l.pop(i))
+		}
 	}
 	l.L.SetTop(top)
 	return
