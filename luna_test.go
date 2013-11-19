@@ -174,9 +174,11 @@ func TestCall(t *testing.T) {
 		A int
 		B uint
 	}
-
 	type NestedData struct {
 		A Data
+	}
+	type NestedDataPtr struct {
+		A *Data
 	}
 
 	test := func(expected, actual []string) {
@@ -245,7 +247,13 @@ func TestCall(t *testing.T) {
 		"Called with slice\n",
 		"[1] = table:{A=3,B=5,}\n",
 	}
+	nestedStructData := NestedData{Data{3, 2}}
 	nestedStructExpected := []string{
+		"Called with struct\n",
+		"[A] = table:{A=3,B=2,}\n",
+	}
+	nestedStructPtrData := NestedDataPtr{&Data{3, 2}}
+	nestedStructPtrExpected := []string{
 		"Called with struct\n",
 		"[A] = table:{A=3,B=2,}\n",
 	}
@@ -364,11 +372,18 @@ end
 	test(structExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("struct", NestedData{Data{3, 2}})
+	_, err = l.Call("struct", nestedStructData)
 	if err != nil {
 		t.Error("Error calling 'struct' with a nested struct:", err)
 	}
 	test(nestedStructExpected, *c)
+	*c = (*c)[:0]
+
+	_, err = l.Call("struct", nestedStructPtrData)
+	if err != nil {
+		t.Error("Error calling 'struct' with a nested struct pointer:", err)
+	}
+	test(nestedStructPtrExpected, *c)
 	*c = (*c)[:0]
 
 	_, err = l.Call("map", mapData)
@@ -408,11 +423,6 @@ func TestInvalidCall(t *testing.T) {
 	type empty struct {
 	}
 	_, err := l.Call("noexists", invalidStruct{})
-	if err == nil {
-		t.Error("Error expected")
-	}
-	// TODO: remove when pointers are implemented
-	_, err = l.Call("noexists", l)
 	if err == nil {
 		t.Error("Error expected")
 	}
