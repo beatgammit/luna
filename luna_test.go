@@ -180,6 +180,10 @@ func TestCall(t *testing.T) {
 	type NestedDataPtr struct {
 		A *Data
 	}
+	type DataWithPrivate struct {
+		A int
+		b string
+	}
 
 	test := func(expected, actual []string) {
 		for i, act := range actual {
@@ -229,11 +233,6 @@ func TestCall(t *testing.T) {
 		"boolean:true\n",
 		"nil:nil\n",
 	}
-	structExpected := []string{
-		"Called with struct\n",
-		"[A] = number:3\n",
-		"[B] = number:2\n",
-	}
 	sliceData := []int{3, 5, 7, 9}
 	sliceExpected := []string{
 		"Called with slice\n",
@@ -246,6 +245,17 @@ func TestCall(t *testing.T) {
 	complexSliceExpected := []string{
 		"Called with slice\n",
 		"[1] = table:{A=3,B=5,}\n",
+	}
+	structData := Data{3, 2}
+	structExpected := []string{
+		"Called with struct\n",
+		"[A] = number:3\n",
+		"[B] = number:2\n",
+	}
+	structWithPrivateData := DataWithPrivate{3, "secret"}
+	structWithPrivateExpected := []string{
+		"Called with struct\n",
+		"[A] = number:3\n",
 	}
 	nestedStructData := NestedData{Data{3, 2}}
 	nestedStructExpected := []string{
@@ -365,11 +375,19 @@ end
 	test(basicTypesExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("struct", Data{3, 2})
+	_, err = l.Call("struct", structData)
 	if err != nil {
 		t.Error("Error calling 'struct':", err)
 	}
 	test(structExpected, *c)
+	*c = (*c)[:0]
+
+	// this will panic if it tries to push the private field
+	_, err = l.Call("struct", structWithPrivateData)
+	if err != nil {
+		t.Error("Error calling 'struct' with an unexported field:", err)
+	}
+	test(structWithPrivateExpected, *c)
 	*c = (*c)[:0]
 
 	_, err = l.Call("struct", nestedStructData)

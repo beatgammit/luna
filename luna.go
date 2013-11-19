@@ -142,6 +142,10 @@ func (l *Luna) pushStruct(arg reflect.Value) error {
 	for i := 0; i < arg.NumField(); i++ {
 		field := arg.Field(i)
 		fieldTyp := typ.Field(i)
+		if !field.CanInterface() {
+			// probably an unexported field, don't try to push
+			return nil
+		}
 		if l.pushBasicType(field.Interface()) {
 			l.L.SetField(-2, fieldTyp.Name)
 			continue
