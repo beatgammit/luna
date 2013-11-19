@@ -204,9 +204,7 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	typ := reflect.TypeOf(arg)
 	switch typ.Kind() {
 	case reflect.Struct:
-		if err = l.pushStruct(reflect.ValueOf(arg)); err != nil {
-			return
-		}
+		return l.pushStruct(reflect.ValueOf(arg))
 	case reflect.Func:
 		l.L.PushGoFunction(wrapperGen(l, reflect.ValueOf(arg)))
 	case reflect.Array, reflect.Slice:
@@ -214,13 +212,12 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	case reflect.Map:
 		return l.pushMap(reflect.ValueOf(arg))
 	case reflect.Ptr:
-		/*
-			if typ.Elem().Kind() == reflect.Struct {
-				l.L.PushGoStruct(arg)
-				break
-			}
-		*/
-		fallthrough
+		// TODO: this should eventually use lua userdata instead of just dereferencing
+		val := reflect.ValueOf(arg).Elem().Interface()
+		if l.pushBasicType(val) {
+			return nil
+		}
+		return l.pushComplexType(val)
 	default:
 		err = fmt.Errorf("Invalid type: %s", typ.Kind())
 	}
