@@ -71,18 +71,6 @@ func New(libs Lib) *Luna {
 	return l
 }
 
-// printGen generates a print() function that writes to the given io.Writer.
-func printGen(w io.Writer) func(...string) {
-	return func(args ...string) {
-		// TODO: support interface{} parameters
-		var _args []interface{}
-		for _, arg := range args {
-			_args = append(_args, arg)
-		}
-		fmt.Fprintln(w, _args...)
-	}
-}
-
 // Stdout changes where print() writes to (default os.Stdout).
 // Note, this does **not** change anything in the io package.
 func (l *Luna) Stdout(w io.Writer) {
@@ -103,6 +91,71 @@ func (l *Luna) Load(src string) error {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 	return l.L.DoString(src)
+}
+
+// Call calls a Lua function named <string> with the provided arguments.
+func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err error) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
+	top := l.L.GetTop()
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		// undo...
+		l.L.SetTop(top)
+	}()
+
+	l.L.GetField(lua.LUA_GLOBALSINDEX, name)
+	for _, arg := range args {
+		if l.pushBasicType(arg) {
+			continue
+		}
+
+		if err = l.pushComplexType(arg); err != nil {
+			return
+		}
+	}
+	err = l.L.Call(len(args), lua.LUA_MULTRET)
+	if err == nil {
+		iret := l.L.GetTop()
+		for i := 1; i < iret+1; i++ {
+			ret = append(ret, l.pop(i))
+		}
+	}
+	l.L.SetTop(top)
+	return
+}
+
+// CreateLibrary registers a library <name> with the given members.
+// An error is returned if one of the members is of an unsupported type.
+func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
+	top := l.L.GetTop()
+	defer func() {
+		if err != nil {
+			l.L.SetTop(top)
+		}
+	}()
+
+	l.L.NewTable()
+	for _, kv := range members {
+		if l.pushBasicType(kv.Val) {
+			l.L.SetField(-2, kv.Key)
+			continue
+		}
+		if err = l.pushComplexType(kv.Val); err != nil {
+			return
+		}
+		l.L.SetField(-2, kv.Key)
+	}
+
+	l.L.SetGlobal(name)
+	return
 }
 
 func (l *Luna) pushBasicType(arg interface{}) bool {
@@ -269,42 +322,6 @@ func (l *Luna) pop(i int) interface{} {
 	return nil
 }
 
-// Call calls a Lua function named <string> with the provided arguments.
-func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-
-	top := l.L.GetTop()
-	defer func() {
-		if err == nil {
-			return
-		}
-
-		// undo...
-		l.L.SetTop(top)
-	}()
-
-	l.L.GetField(lua.LUA_GLOBALSINDEX, name)
-	for _, arg := range args {
-		if l.pushBasicType(arg) {
-			continue
-		}
-
-		if err = l.pushComplexType(arg); err != nil {
-			return
-		}
-	}
-	err = l.L.Call(len(args), lua.LUA_MULTRET)
-	if err == nil {
-		iret := l.L.GetTop()
-		for i := 1; i < iret+1; i++ {
-			ret = append(ret, l.pop(i))
-		}
-	}
-	l.L.SetTop(top)
-	return
-}
-
 func (l *Luna) tableToStruct(val reflect.Value, i int) error {
 	l.L.PushNil()
 	for l.L.Next(i) != 0 {
@@ -369,6 +386,20 @@ func (l *Luna) set(val reflect.Value, i int) error {
 	return nil
 }
 
+// helper functions
+
+// printGen generates a print() function that writes to the given io.Writer.
+func printGen(w io.Writer) func(...string) {
+	return func(args ...string) {
+		// TODO: support interface{} parameters
+		var _args []interface{}
+		for _, arg := range args {
+			_args = append(_args, arg)
+		}
+		fmt.Fprintln(w, _args...)
+	}
+}
+
 func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 	typ := impl.Type()
 	params := make([]reflect.Value, typ.NumIn())
@@ -415,33 +446,4 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 		}
 		return len(ret)
 	}
-}
-
-// CreateLibrary registers a library <name> with the given members.
-// An error is returned if one of the members is of an unsupported type.
-func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-
-	top := l.L.GetTop()
-	defer func() {
-		if err != nil {
-			l.L.SetTop(top)
-		}
-	}()
-
-	l.L.NewTable()
-	for _, kv := range members {
-		if l.pushBasicType(kv.Val) {
-			l.L.SetField(-2, kv.Key)
-			continue
-		}
-		if err = l.pushComplexType(kv.Val); err != nil {
-			return
-		}
-		l.L.SetField(-2, kv.Key)
-	}
-
-	l.L.SetGlobal(name)
-	return
 }
