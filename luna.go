@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"reflect"
+	"sync"
 )
 
 type Lib uint
@@ -35,11 +36,12 @@ type TableKeyValue struct {
 type Luna struct {
 	L   *lua.State
 	lib Lib
+	mut *sync.Mutex
 }
 
 // New creates a new Luna instance, opening all libs provided.
 func New(libs Lib) *Luna {
-	l := &Luna{lua.NewState(), libs}
+	l := &Luna{lua.NewState(), libs, &sync.Mutex{}}
 	if libs == AllLibs {
 		l.L.OpenLibs()
 	} else {
@@ -84,16 +86,22 @@ func printGen(w io.Writer) func(...string) {
 // Stdout changes where print() writes to (default os.Stdout).
 // Note, this does **not** change anything in the io package.
 func (l *Luna) Stdout(w io.Writer) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
 	l.L.Register("print", wrapperGen(l, reflect.ValueOf(printGen(w))))
 }
 
 // loads and executes a Lua source file
 func (l *Luna) LoadFile(path string) error {
+	l.mut.Lock()
+	defer l.mut.Unlock()
 	return l.L.DoFile(path)
 }
 
 // loads and executes Lua source
 func (l *Luna) Load(src string) error {
+	l.mut.Lock()
+	defer l.mut.Unlock()
 	return l.L.DoString(src)
 }
 
@@ -263,6 +271,9 @@ func (l *Luna) pop(i int) interface{} {
 
 // Call calls a Lua function named <string> with the provided arguments.
 func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err error) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
 	top := l.L.GetTop()
 	defer func() {
 		if err == nil {
@@ -409,6 +420,9 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 // CreateLibrary registers a library <name> with the given members.
 // An error is returned if one of the members is of an unsupported type.
 func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
 	top := l.L.GetTop()
 	defer func() {
 		if err != nil {
