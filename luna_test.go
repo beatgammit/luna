@@ -58,6 +58,18 @@ func (msgs *stdout) Write(msg []byte) (int, error) {
 	return len(msg), nil
 }
 
+func test(t *testing.T, expected, actual []string) {
+	for i, act := range actual {
+		if i >= len(expected) {
+			t.Error("Extra print sent:", act)
+			continue
+		}
+		if expected[i] != act {
+			t.Errorf("Expected: '%s', Actual: '%s'", expected[i], act)
+		}
+	}
+}
+
 func TestLoad(t *testing.T) {
 	msg := "Hello World"
 	src := "print(\"" + msg + "\")"
@@ -169,6 +181,109 @@ func TestInvalidLibrary(t *testing.T) {
 	}
 }
 
+func TestCallEmpty(t *testing.T) {
+	noparamsExpected := []string{
+		"Called without params\n",
+	}
+
+	l := New(LibBase | LibString | LibTable)
+	defer l.Close()
+	c := new(stdout)
+	l.Stdout(c)
+	l.Load(`function noparams()
+				print("Called without params")
+			end`)
+	if _, err := l.Call("noparams"); err != nil {
+		t.Error("Error calling 'noparams':", err)
+	}
+	test(t, noparamsExpected, *c)
+}
+
+func TestCallIntegers(t *testing.T) {
+	numbers := []interface{}{
+		int(5),
+		int8(5),
+		int16(5),
+		int32(5),
+		int64(5),
+		uint(5),
+		uint8(5),
+		uint16(5),
+		uint32(5),
+		uint64(5),
+	}
+
+	numExpected := []string{
+		"Called with number: number:5\n",
+	}
+
+	l := New(LibBase | LibString | LibTable)
+	defer l.Close()
+	c := new(stdout)
+	l.Stdout(c)
+	l.Load(`function do_int(num)
+				print(string.format("Called with number: %s:%s", type(num), num))
+			end`)
+	for _, i := range numbers {
+		if _, err := l.Call("do_int", i); err != nil {
+			t.Error("Error calling 'num':", err)
+		}
+		test(t, numExpected, *c)
+		*c = (*c)[:0]
+	}
+}
+
+func TestCallFloats(t *testing.T) {
+	floats := []interface{}{
+		float32(4.2),
+		float64(4.2),
+	}
+
+	floatExpected := []string{
+		"Called with float: number:4.2\n",
+	}
+
+	l := New(LibBase | LibString | LibTable)
+	defer l.Close()
+	c := new(stdout)
+	l.Stdout(c)
+	l.Load(`function float(num)
+				print(string.format("Called with float: %s:%1.1f", type(num), num))
+			end`)
+	for _, i := range floats {
+		if _, err := l.Call("float", i); err != nil {
+			t.Error("Error calling 'float':", err)
+		}
+		test(t, floatExpected, *c)
+		*c = (*c)[:0]
+	}
+}
+
+func TestBasicTypes(t *testing.T) {
+	basicTypesExpected := []string{
+		"Called with basic types:\n",
+		"string:hello\n",
+		"boolean:true\n",
+		"nil:nil\n",
+	}
+
+	l := New(LibBase | LibString | LibTable)
+	defer l.Close()
+	c := new(stdout)
+	l.Stdout(c)
+	l.Load(`function basicTypes(tStr, tBool, tNil)
+				print("Called with basic types:")
+				print(string.format("%s:%s", type(tStr), tStr))
+				print(string.format("%s:%s", type(tBool), tostring(tBool)))
+				print(string.format("%s:%s", type(tNil), tostring(tNil)))
+			end`)
+
+	if _, err := l.Call("basicTypes", "hello", true, nil); err != nil {
+		t.Error("Error calling 'basicTypes':", err)
+	}
+	test(t, basicTypesExpected, *c)
+}
+
 func TestCall(t *testing.T) {
 	type Data struct {
 		A int
@@ -185,54 +300,6 @@ func TestCall(t *testing.T) {
 		b string
 	}
 
-	test := func(expected, actual []string) {
-		for i, act := range actual {
-			if i >= len(expected) {
-				t.Error("Extra print sent:", act)
-				continue
-			}
-			if expected[i] != act {
-				t.Errorf("Expected: '%s', Actual: '%s'", expected[i], act)
-			}
-		}
-	}
-
-	var callbackCalled int
-	callback := func() {
-		callbackCalled++
-	}
-
-	noparamsExpected := []string{
-		"Called without params\n",
-	}
-	numbers := []interface{}{
-		int(5),
-		int8(5),
-		int16(5),
-		int32(5),
-		int64(5),
-		uint(5),
-		uint8(5),
-		uint16(5),
-		uint32(5),
-		uint64(5),
-	}
-	numExpected := []string{
-		"Called with number: number:5\n",
-	}
-	floats := []interface{}{
-		float32(4.2),
-		float64(4.2),
-	}
-	floatExpected := []string{
-		"Called with float: number:4.2\n",
-	}
-	basicTypesExpected := []string{
-		"Called with basic types:\n",
-		"string:hello\n",
-		"boolean:true\n",
-		"nil:nil\n",
-	}
 	sliceData := []int{3, 5, 7, 9}
 	sliceExpected := []string{
 		"Called with slice\n",
@@ -278,18 +345,6 @@ func TestCall(t *testing.T) {
 	c := new(stdout)
 	l.Stdout(c)
 	file := `
-function noparams()
-	print("Called without params")
-end
-
-function float(num)
-  print(string.format("Called with float: %s:%1.1f", type(num), num))
-end
-
-function num(num)
-	print(string.format("Called with number: %s:%s", type(num), num))
-end
-
 function table_to_string(tab)
   local str = "{"
   for k,v in pairs(tab) do
@@ -299,16 +354,9 @@ function table_to_string(tab)
   return str
 end
 
-function basicTypes(tStr, tBool, tNil)
-	print("Called with basic types:")
-	print(string.format("%s:%s", type(tStr), tStr))
-	print(string.format("%s:%s", type(tBool), tostring(tBool)))
-	print(string.format("%s:%s", type(tNil), tostring(tNil)))
-end
-
 function struct(obj)
 	print("Called with struct")
-  object(obj)
+	object(obj)
 end
 
 function map(obj)
@@ -319,9 +367,9 @@ end
 function object(obj)
 	for k,v in pairs(obj) do
     if type(v) == "table" then
-      print(string.format("[%s] = %s:%s", k, type(v), table_to_string(v)))
+		print(string.format("[%s] = %s:%s", k, type(v), table_to_string(v)))
     else
-      print(string.format("[%s] = %s:%s", k, type(v), tostring(v)))
+		print(string.format("[%s] = %s:%s", k, type(v), tostring(v)))
     end
 	end
 end
@@ -329,104 +377,75 @@ end
 function slice(arr)
 	print("Called with slice")
 	for k,v in pairs(arr) do
-    if type(v) == "table" then
-      print(string.format("[%d] = %s:%s", k, type(v), table_to_string(v)))
-    else
-      print(string.format("[%d] = %s:%s", k, type(v), tostring(v)))
-    end
+		if type(v) == "table" then
+			print(string.format("[%d] = %s:%s", k, type(v), table_to_string(v)))
+		else
+			print(string.format("[%d] = %s:%s", k, type(v), tostring(v)))
+		end
 	end
 end
-
-function callback(cb)
-  cb()
-end
-	`
+`
 	if err := l.Load(file); err != nil {
 		t.Error("Error loading test lua code:", err)
 	}
 
-	_, err := l.Call("noparams")
-	if err != nil {
-		t.Error("Error calling 'noparams':", err)
-	}
-	test(noparamsExpected, *c)
-	*c = (*c)[:0]
-
-	for _, i := range numbers {
-		_, err = l.Call("num", i)
-		if err != nil {
-			t.Error("Error calling 'num':", err)
-		}
-		test(numExpected, *c)
-		*c = (*c)[:0]
-	}
-	for _, i := range floats {
-		_, err = l.Call("float", i)
-		if err != nil {
-			t.Error("Error calling 'float':", err)
-		}
-		test(floatExpected, *c)
-		*c = (*c)[:0]
-	}
-	_, err = l.Call("basicTypes", "hello", true, nil)
-	if err != nil {
-		t.Error("Error calling 'basicTypes':", err)
-	}
-	test(basicTypesExpected, *c)
-	*c = (*c)[:0]
-
-	_, err = l.Call("struct", structData)
-	if err != nil {
+	if _, err := l.Call("struct", structData); err != nil {
 		t.Error("Error calling 'struct':", err)
 	}
-	test(structExpected, *c)
+	test(t, structExpected, *c)
 	*c = (*c)[:0]
 
 	// this will panic if it tries to push the private field
-	_, err = l.Call("struct", structWithPrivateData)
-	if err != nil {
+	if _, err := l.Call("struct", structWithPrivateData); err != nil {
 		t.Error("Error calling 'struct' with an unexported field:", err)
 	}
-	test(structWithPrivateExpected, *c)
+	test(t, structWithPrivateExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("struct", nestedStructData)
-	if err != nil {
+	if _, err := l.Call("struct", nestedStructData); err != nil {
 		t.Error("Error calling 'struct' with a nested struct:", err)
 	}
-	test(nestedStructExpected, *c)
+	test(t, nestedStructExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("struct", nestedStructPtrData)
-	if err != nil {
+	if _, err := l.Call("struct", nestedStructPtrData); err != nil {
 		t.Error("Error calling 'struct' with a nested struct pointer:", err)
 	}
-	test(nestedStructPtrExpected, *c)
+	test(t, nestedStructPtrExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("map", mapData)
-	if err != nil {
+	if _, err := l.Call("map", mapData); err != nil {
 		t.Error("Error calling 'map':", err)
 	}
-	test(mapExpected, *c)
+	test(t, mapExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("slice", sliceData)
-	if err != nil {
+	if _, err := l.Call("slice", sliceData); err != nil {
 		t.Error("Error calling 'slice':", err)
 	}
-	test(sliceExpected, *c)
+	test(t, sliceExpected, *c)
 	*c = (*c)[:0]
 
-	_, err = l.Call("slice", complexSliceData)
-	if err != nil {
+	if _, err := l.Call("slice", complexSliceData); err != nil {
 		t.Error("Error calling 'slice' with a nested struct:", err)
 	}
-	test(complexSliceExpected, *c)
-	*c = (*c)[:0]
+	test(t, complexSliceExpected, *c)
+}
 
-	_, err = l.Call("callback", callback)
-	if err != nil {
+func TestCallCallback(t *testing.T) {
+	var callbackCalled int
+	callback := func() {
+		callbackCalled++
+	}
+
+	l := New(LibBase | LibString | LibTable)
+	defer l.Close()
+	c := new(stdout)
+	l.Stdout(c)
+	l.Load(`function callback(cb)
+				cb()
+			end`)
+	if _, err := l.Call("callback", callback); err != nil {
 		t.Error("Error calling 'callback':", err)
 	} else if callbackCalled != 1 {
 		t.Error("callback not called exactly one time:", callbackCalled)
