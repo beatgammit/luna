@@ -93,6 +93,12 @@ func (l *Luna) Load(src string) error {
 	return l.L.DoString(src)
 }
 
+func (l *Luna) Close() {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	l.L.Close()
+}
+
 // Call calls a Lua function named <string> with the provided arguments.
 func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err error) {
 	l.mut.Lock()
