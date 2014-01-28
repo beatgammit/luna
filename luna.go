@@ -114,7 +114,7 @@ func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err er
 		l.L.SetTop(top)
 	}()
 
-	l.L.GetField(lua.LUA_GLOBALSINDEX, name)
+	l.L.GetGlobal(name)
 	for _, arg := range args {
 		if l.pushBasicType(arg) {
 			continue
@@ -452,4 +452,15 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 		}
 		return len(ret)
 	}
+}
+
+// FunctionExists checks if a global function named <string> exists in the global table
+func (l *Luna) FunctionExists(name string) bool {
+	top := l.L.GetTop()
+	l.L.GetGlobal(name)
+	// the golua documentation for IsFunction indicates that it only works for
+	// functions pushed from Go to lua, but it seems to work for all lua functions
+	exists := l.L.IsFunction(l.L.GetTop())
+	l.L.SetTop(top)
+	return exists
 }

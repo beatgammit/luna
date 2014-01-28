@@ -22,7 +22,7 @@ function slice(arr)
 	print("Called with slice")
 	for k,v in pairs(arr) do
 		if type(v) == "table" then
-			print("Printing struct at [%d]", k)
+			print(string.format("Printing struct at [%d]", k))
 			struct(v)
 		else
 			print(string.format("\t[%d] = %s:%s", k, type(v), tostring(v)))

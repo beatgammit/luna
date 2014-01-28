@@ -13,6 +13,16 @@ func main() {
 	l := luna.New(luna.AllLibs)
 	l.LoadFile("call-function.lua")
 
+	if l.FunctionExists("asdf") {
+		fmt.Println("function asdf shouldn't exist!")
+	} else {
+		fmt.Println("function asdf doesn't exist")
+	}
+	if !l.FunctionExists("noparams") {
+		fmt.Println("function noparams should exist!")
+	} else {
+		fmt.Println("function noparams exists")
+	}
 	_, err := l.Call("noparams")
 	if err != nil {
 		fmt.Println("Error calling 'noparams':", err)
