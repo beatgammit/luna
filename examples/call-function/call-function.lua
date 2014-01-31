@@ -30,6 +30,11 @@ function slice(arr)
 	end
 end
 
+function map(m)
+  print("pushed "..string.len(table.concat(m))/string.len(m[1]).." strings")
+  return "everything worked I guess"
+end
+
 function ret()
 	return 5, 3
 end
