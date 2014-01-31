@@ -49,4 +49,15 @@ func main() {
 	} else {
 		fmt.Println("Return values:", ret)
 	}
+
+	big := make(map[int]string)
+	for i:=0; i<=1000; i++ {
+		big[i] = "asdf"
+	}
+	ret, err = l.Call("map", big)
+	if err != nil {
+		fmt.Println("Error calling 'map':", err)
+	} else {
+		fmt.Println("map returned:", ret)
+	}
 }

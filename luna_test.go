@@ -340,6 +340,12 @@ func TestCall(t *testing.T) {
 		"[A] = number:3\n",
 		"[B] = string:hello\n",
 	}
+  mapData2 := map[int]interface{}{3: "A", 5: 123}
+  mapExpected2 := []string{
+    "Called with map\n",
+    "[3] = string:A\n",
+    "[5] = number:123\n",
+  }
 
 	l := New(LibBase | LibString | LibTable)
 	c := new(stdout)
@@ -418,6 +424,12 @@ end
 		t.Error("Error calling 'map':", err)
 	}
 	test(t, mapExpected, *c)
+	*c = (*c)[:0]
+
+	if _, err := l.Call("map", mapData2); err != nil {
+		t.Error("Error calling 'map':", err)
+	}
+	test(t, mapExpected2, *c)
 	*c = (*c)[:0]
 
 	if _, err := l.Call("slice", sliceData); err != nil {

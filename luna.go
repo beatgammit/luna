@@ -253,20 +253,17 @@ func (l *Luna) pushSlice(arg reflect.Value) error {
 
 func (l *Luna) pushMap(arg reflect.Value) error {
 	l.L.NewTable()
-	typ := arg.Type()
-	if typ.Key().Kind() != reflect.String {
-		return fmt.Errorf("map key type: %s invalid, must be string", typ.Key())
-	}
 	for _, k := range arg.MapKeys() {
+		// push map key
+		l.pushBasicType(k.Interface())
+		// push value
 		v := arg.MapIndex(k)
-		if l.pushBasicType(v.Interface()) {
-			l.L.SetField(-2, k.Interface().(string))
-			continue
+		if !l.pushBasicType(v.Interface()) {
+			if err := l.pushComplexType(v.Interface()); err != nil {
+				return err
+			}
 		}
-		if err := l.pushComplexType(v.Interface()); err != nil {
-			return err
-		}
-		l.L.SetField(-2, k.Interface().(string))
+		l.L.SetTable(-3)
 	}
 	return nil
 }
