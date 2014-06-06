@@ -39,6 +39,69 @@ type Luna struct {
 	mut *sync.Mutex
 }
 
+func convertBasic(src LuaValue, dst interface{}) error {
+	destVal := reflect.ValueOf(dst)
+	if destVal.Type().Kind() != reflect.Ptr {
+		return fmt.Errorf("Must pass a pointer type to Unmarshal")
+	}
+
+	destType := destVal.Elem().Type()
+
+	srcVal := reflect.ValueOf(src)
+	if !srcVal.Type().ConvertibleTo(destType) {
+		return fmt.Errorf("Cannot assign '%s' to '%s': given = %v", srcVal.Type(), destType, src)
+	}
+	destVal.Elem().Set(srcVal.Convert(destType))
+	return nil
+}
+
+type LuaNumber float64
+
+func (lv LuaNumber) Unmarshal(d interface{}) error {
+	return convertBasic(lv, d)
+}
+
+type LuaBool bool
+
+func (lv LuaBool) Unmarshal(d interface{}) error {
+	return convertBasic(lv, d)
+}
+
+type LuaString string
+
+func (lv LuaString) Unmarshal(d interface{}) error {
+	return convertBasic(lv, d)
+}
+
+// the type here doesn't matter, as long as it's nil-able
+type LuaNil []int
+
+func (lv LuaNil) Unmarshal(d interface{}) error {
+	destVal := reflect.ValueOf(d)
+	if destVal.Type().Kind() != reflect.Ptr {
+		return fmt.Errorf("Must pass a pointer type to Unmarshal")
+	}
+	switch destVal.Type().Kind() {
+	// I don't think lua can return a pointer or an interface,
+	// but it's not hurting anything
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Interface:
+		destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
+	default:
+		return fmt.Errorf("Unmarshal unsupported for %T", d)
+	}
+	return nil
+}
+
+type luaTypeError string
+
+func (lv luaTypeError) Unmarshal(interface{}) error {
+	return fmt.Errorf("%s", lv)
+}
+
+type LuaValue interface {
+	Unmarshal(interface{}) error
+}
+
 // New creates a new Luna instance, opening all libs provided.
 func New(libs Lib) *Luna {
 	l := &Luna{lua.NewState(), libs, &sync.Mutex{}}
@@ -99,8 +162,22 @@ func (l *Luna) Close() {
 	l.L.Close()
 }
 
+type LuaRet []LuaValue
+
+func (lr LuaRet) Unmarshal(vals ...interface{}) error {
+	if len(vals) != len(lr) {
+		return fmt.Errorf("")
+	}
+	for i, v := range vals {
+		if err := lr[i].Unmarshal(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Call calls a Lua function named <string> with the provided arguments.
-func (l *Luna) Call(name string, args ...interface{}) (ret []interface{}, err error) {
+func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 
@@ -292,16 +369,16 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 	return
 }
 
-func (l *Luna) pop(i int) interface{} {
+func (l *Luna) pop(i int) LuaValue {
 	switch t := l.L.Type(i); t {
 	case lua.LUA_TNUMBER:
-		return l.L.ToNumber(i)
+		return LuaNumber(l.L.ToNumber(i))
 	case lua.LUA_TBOOLEAN:
-		return l.L.ToBoolean(i)
+		return LuaBool(l.L.ToBoolean(i))
 	case lua.LUA_TSTRING:
-		return l.L.ToString(i)
+		return LuaString(l.L.ToString(i))
 	case lua.LUA_TNIL:
-		return nil
+		return LuaNil(nil)
 		/*
 			case lua.LUA_TTABLE:
 				// TODO: implement
@@ -320,7 +397,7 @@ func (l *Luna) pop(i int) interface{} {
 				fallthrough
 		*/
 	default:
-		return fmt.Errorf("Unexpected type: %d", t)
+		return luaTypeError(fmt.Sprintf("Unexpected type: %d", t))
 	}
 	return nil
 }
@@ -339,6 +416,7 @@ func (l *Luna) tableToStruct(val reflect.Value, i int) error {
 				return err
 			}
 		} else {
+			// TODO: get rid of this log
 			log.Println("Field doesn't exist:", name)
 		}
 		l.L.Pop(1)

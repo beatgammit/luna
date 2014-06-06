@@ -2,6 +2,7 @@ package luna
 
 import (
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -340,12 +341,12 @@ func TestCall(t *testing.T) {
 		"[A] = number:3\n",
 		"[B] = string:hello\n",
 	}
-  mapData2 := map[int]interface{}{3: "A", 5: 123}
-  mapExpected2 := []string{
-    "Called with map\n",
-    "[3] = string:A\n",
-    "[5] = number:123\n",
-  }
+	mapData2 := map[int]interface{}{3: "A", 5: 123}
+	mapExpected2 := []string{
+		"Called with map\n",
+		"[3] = string:A\n",
+		"[5] = number:123\n",
+	}
 
 	l := New(LibBase | LibString | LibTable)
 	c := new(stdout)
@@ -570,8 +571,27 @@ end`
 
 		if len(ret) != 1 {
 			t.Errorf("Incorrect number of return vals. Expected '%d', Actual: '%d'", 1, len(ret))
-		} else if val != ret[0] {
-			t.Errorf("Expected: %v, Actual: %v", val, ret[0])
+		} else if val == nil {
+			if _, ok := ret[0].(LuaNil); !ok {
+				t.Errorf("Expected: %v, Actual: %v", val, ret[0])
+			}
+		} else {
+			typ := reflect.TypeOf(val)
+			retVal := reflect.New(typ)
+			retVal.Elem().Set(reflect.ValueOf(val))
+			if retVal.Elem().Interface() != val {
+				t.Errorf("Expected: %v, Actual: %v", val, ret[0])
+			}
 		}
+	}
+}
+
+// TODO: expand this test
+func TestBadUnmarshal(t *testing.T) {
+	val := LuaNumber(5)
+	var str string
+	err := val.Unmarshal(&str)
+	if err == nil {
+		t.Error("Expected error when unmarshalling lua number into a Go string")
 	}
 }
