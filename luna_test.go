@@ -586,6 +586,101 @@ end`
 	}
 }
 
+func TestReturnTableSlice(t *testing.T) {
+	l := New(LibBase)
+	code := `
+    function returnTable()
+        return {1, 2, 3}
+    end`
+
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+	}
+
+	ret, err := l.Call("returnTable")
+	if err != nil {
+		t.Error("Error calling returnTable:", err)
+		return
+	}
+
+	var list []float64
+	ret.Unmarshal(&list)
+
+	if len(list) != 3 {
+		t.Errorf("Expected list of length 3, got %d", len(list))
+	}
+	for i, v := range list {
+		if int(v) != i+1 {
+			t.Errorf("[%d]: %d != %d", i, int(v), i+1)
+		}
+	}
+}
+
+func TestReturnTableMap(t *testing.T) {
+	l := New(LibBase)
+	code := `
+    function returnTable()
+        return {hello = "world", luna = "rocks"}
+    end`
+
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+	}
+
+	ret, err := l.Call("returnTable")
+	if err != nil {
+		t.Error("Error calling returnTable:", err)
+		return
+	}
+
+	hash := make(map[string]string)
+	ret.Unmarshal(&hash)
+
+	if len(hash) != 2 {
+		t.Errorf("Expected map with 3 items, got %d", len(hash))
+	}
+	if v, ok := hash["hello"]; !ok || v != "world" {
+		t.Errorf("hash does not contain hello: world")
+	}
+	if v, ok := hash["luna"]; !ok || v != "rocks" {
+		t.Errorf("hash does not contain luna: rocks")
+	}
+}
+
+// TODO: expand this test with nested structs
+func TestReturnTableStruct(t *testing.T) {
+	type test struct {
+		Hello string
+		Luna  string
+	}
+
+	l := New(LibBase)
+	code := `
+    function returnTable()
+        return {hello = "world", luna = "rocks"}
+    end`
+
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+	}
+
+	ret, err := l.Call("returnTable")
+	if err != nil {
+		t.Error("Error calling returnTable:", err)
+		return
+	}
+
+	obj := test{}
+	ret.Unmarshal(&obj)
+
+	if obj.Hello != "world" {
+		t.Error("Hello field not set")
+	}
+	if obj.Luna != "rocks" {
+		t.Error("Luna field not set")
+	}
+}
+
 // TODO: expand this test
 func TestBadUnmarshal(t *testing.T) {
 	val := LuaNumber(5)
