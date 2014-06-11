@@ -1,6 +1,9 @@
 package luna
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -682,9 +685,9 @@ func TestReturnTableStruct(t *testing.T) {
 }
 
 func TestReturnTableNestedMapInStruct(t *testing.T) {
-    type inner struct {
-        Val string
-    }
+	type inner struct {
+		Val string
+	}
 	type test struct {
 		Val map[string]inner
 	}
@@ -716,6 +719,56 @@ func TestReturnTableNestedMapInStruct(t *testing.T) {
 		t.Error("Key doesn't exist")
 	} else if v.Val != "world" {
 		t.Error("Value isn't correct")
+	}
+}
+
+type textMarshaler struct {
+	A string
+	B string
+}
+
+func (tm *textMarshaler) UnmarshalText(arr []byte) error {
+	s := bufio.NewScanner(bytes.NewReader(arr))
+	if !s.Scan() {
+		return fmt.Errorf("Error finding first token")
+	}
+	tm.A = s.Text()
+	if !s.Scan() {
+		return fmt.Errorf("Error finding second token")
+	}
+	tm.B = s.Text()
+	return nil
+}
+func (tm *textMarshaler) MarshalText() ([]byte, error) {
+	return []byte(tm.A + "\n" + tm.B), nil
+}
+
+func TestUnmarshalText(t *testing.T) {
+	l := New(LibBase)
+	code := `
+    function returnTextMarshaler()
+        return "hello\nworld"
+    end`
+
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+	}
+
+	ret, err := l.Call("returnTextMarshaler")
+	if err != nil {
+		t.Error("Error calling returnTextMarshaler:", err)
+		return
+	}
+
+	var tm textMarshaler
+	ret.Unmarshal(&tm)
+
+	if tm.A != "hello" {
+		t.Error("First token not read correctly")
+	}
+
+	if tm.B != "world" {
+		t.Error("Second token not read correctly")
 	}
 }
 

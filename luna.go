@@ -1,6 +1,7 @@
 package luna
 
 import (
+	"encoding"
 	"fmt"
 	"io"
 	"log"
@@ -50,6 +51,18 @@ func convertBasic(src LuaValue, dst interface{}) error {
 			return fmt.Errorf("Must pass a pointer type to Unmarshal")
 		}
 	}
+
+	if v, ok := src.(LuaString); ok {
+		dst := destVal.Interface()
+		if unmarshaler, ok := dst.(encoding.TextUnmarshaler); ok {
+			return unmarshaler.UnmarshalText([]byte(v))
+		}
+		dst = reflect.Indirect(destVal).Interface()
+		if unmarshaler, ok := dst.(encoding.TextUnmarshaler); ok {
+			return unmarshaler.UnmarshalText([]byte(v))
+		}
+	}
+
 	destVal = reflect.Indirect(destVal)
 
 	destType := destVal.Type()
