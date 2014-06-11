@@ -142,11 +142,15 @@ func setMap(destVal reflect.Value, k interface{}, v LuaValue, destType reflect.T
 }
 
 func (lv LuaTable) Unmarshal(d interface{}) (err error) {
-	destVal := reflect.ValueOf(d)
-	if destVal.Type().Kind() != reflect.Ptr {
-		return fmt.Errorf("Must pass a pointer type to Unmarshal")
+	var destVal reflect.Value
+	var ok bool
+	if destVal, ok = d.(reflect.Value); !ok {
+		destVal = reflect.ValueOf(d)
+		if destVal.Type().Kind() != reflect.Ptr {
+			return fmt.Errorf("Must pass a pointer type to Unmarshal")
+		}
 	}
-	destVal = destVal.Elem()
+	destVal = reflect.Indirect(destVal)
 
 	destType := destVal.Type()
 	switch k := destType.Kind(); k {
@@ -185,6 +189,10 @@ func (lv LuaTable) Unmarshal(d interface{}) (err error) {
 			}
 		}
 	case reflect.Map:
+		if destVal.IsNil() {
+			destVal.Set(reflect.MakeMap(destType))
+		}
+
 		keyType := destType.Key()
 		if keyType.Kind() >= reflect.Int && keyType.Kind() <= reflect.Complex128 {
 			for k, v := range lv.indexed {

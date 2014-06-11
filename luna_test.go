@@ -681,6 +681,44 @@ func TestReturnTableStruct(t *testing.T) {
 	}
 }
 
+func TestReturnTableNestedMapInStruct(t *testing.T) {
+    type inner struct {
+        Val string
+    }
+	type test struct {
+		Val map[string]inner
+	}
+
+	l := New(LibBase)
+	code := `
+    function returnTable()
+        return {val = {hello = { val = "world"}}}
+    end`
+
+	if err := l.Load(code); err != nil {
+		t.Error("Error loading test code:", err)
+	}
+
+	ret, err := l.Call("returnTable")
+	if err != nil {
+		t.Error("Error calling returnTable:", err)
+		return
+	}
+
+	obj := test{}
+	ret.Unmarshal(&obj)
+
+	if len(obj.Val) != 1 {
+		t.Error("Embedded map wasn't unmarshalled properly")
+		return
+	}
+	if v, ok := obj.Val["hello"]; !ok {
+		t.Error("Key doesn't exist")
+	} else if v.Val != "world" {
+		t.Error("Value isn't correct")
+	}
+}
+
 // TODO: expand this test
 func TestBadUnmarshal(t *testing.T) {
 	val := LuaNumber(5)
