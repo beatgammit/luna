@@ -2,12 +2,13 @@ package luna
 
 import (
 	"fmt"
-	"github.com/aarzilli/golua/lua"
 	"io"
 	"log"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/beatgammit/golua/lua"
 )
 
 type Lib uint
