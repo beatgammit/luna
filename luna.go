@@ -340,10 +340,13 @@ func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
 	err = l.L.Call(len(args), lua.LUA_MULTRET)
 	if err == nil {
 		iret := l.L.GetTop()
-		for i := 1; i < iret+1; i++ {
-			ret = append(ret, l.pop(i))
+		ret = make(LuaRet, iret)
+		for i := l.L.GetTop(); i > 0; i = l.L.GetTop() {
+			ret[i-1] = l.pop(i)
+			l.L.Pop(1)
 		}
 	}
+	// likely unnecessary
 	l.L.SetTop(top)
 	return
 }

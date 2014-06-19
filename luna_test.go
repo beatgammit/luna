@@ -185,48 +185,48 @@ func TestInvalidLibrary(t *testing.T) {
 	}
 }
 
-func TestLibraryReturnMap(t *testing.T) {
-    exp := map[string]string{
-        "hello": "world",
-        "good": "boy",
-    }
-
-	libMembers := []TableKeyValue{
-		{
-			"fun", func() map[string]string {
-				return exp
-			},
-		},
+func TestMultiReturn(t *testing.T) {
+	exp := map[string]string{
+		"hello": "world",
+		"good":  "boy",
 	}
 
 	l := New(LibBase)
-	if err := l.CreateLibrary("testlib", libMembers...); err != nil {
-        t.Fatal("Error creating library:", err)
-    }
-
 	code := `
     function call_fun()
-        return testlib.fun()
+        return {hello="world"}, "something"
     end`
 
-    if err := l.Load(code); err != nil {
-        t.Fatal("error loading test code:", err)
-    }
+	if err := l.Load(code); err != nil {
+		t.Fatal("error loading test code:", err)
+	}
 
-    ret, err := l.Call("call_fun")
-    if err != nil {
-        t.Fatal("Error calling lua function:", err)
-    }
+	fmt.Println("Multi-return call")
+	ret, err := l.Call("call_fun")
+	if err != nil {
+		t.Fatal("Error calling lua function:", err)
+	}
 
-    var m map[string]string
-    ret.Unmarshal(&m)
-    for k, v := range m {
-        if _, ok := exp[k]; !ok {
-            t.Error("Unexpected key:", k)
-        } else if v != exp[k] {
-            t.Errorf("[%s] - %s != %s", k, v, exp[k])
-        }
-    }
+	fmt.Println("Call done")
+
+	if len(ret) != 2 {
+		t.Fatal("Expected 2 return values, received %d", len(ret))
+	}
+
+	var m map[string]string
+	var s string
+
+	ret.Unmarshal(&m, &s)
+	for k, v := range m {
+		if _, ok := exp[k]; !ok {
+			t.Error("Unexpected key:", k)
+		} else if v != exp[k] {
+			t.Errorf("[%s] - %s != %s", k, v, exp[k])
+		}
+	}
+	if s != "something" {
+		t.Error("%s != 'something'", s)
+	}
 }
 
 func TestCallEmpty(t *testing.T) {
