@@ -185,6 +185,50 @@ func TestInvalidLibrary(t *testing.T) {
 	}
 }
 
+func TestLibraryReturnMap(t *testing.T) {
+    exp := map[string]string{
+        "hello": "world",
+        "good": "boy",
+    }
+
+	libMembers := []TableKeyValue{
+		{
+			"fun", func() map[string]string {
+				return exp
+			},
+		},
+	}
+
+	l := New(LibBase)
+	if err := l.CreateLibrary("testlib", libMembers...); err != nil {
+        t.Fatal("Error creating library:", err)
+    }
+
+	code := `
+    function call_fun()
+        return testlib.fun()
+    end`
+
+    if err := l.Load(code); err != nil {
+        t.Fatal("error loading test code:", err)
+    }
+
+    ret, err := l.Call("call_fun")
+    if err != nil {
+        t.Fatal("Error calling lua function:", err)
+    }
+
+    var m map[string]string
+    ret.Unmarshal(&m)
+    for k, v := range m {
+        if _, ok := exp[k]; !ok {
+            t.Error("Unexpected key:", k)
+        } else if v != exp[k] {
+            t.Errorf("[%s] - %s != %s", k, v, exp[k])
+        }
+    }
+}
+
 func TestCallEmpty(t *testing.T) {
 	noparamsExpected := []string{
 		"Called without params\n",
