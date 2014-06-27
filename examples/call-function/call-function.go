@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/beatgammit/luna"
 )
 
@@ -11,7 +12,11 @@ type Data struct {
 
 func main() {
 	l := luna.New(luna.AllLibs)
-	l.LoadFile("call-function.lua")
+	_, err := l.LoadFile("call-function.lua")
+	if err != nil {
+		fmt.Println("Error loading file:", err)
+		return
+	}
 
 	if l.FunctionExists("asdf") {
 		fmt.Println("function asdf shouldn't exist!")
@@ -23,7 +28,7 @@ func main() {
 	} else {
 		fmt.Println("function noparams exists")
 	}
-	_, err := l.Call("noparams")
+	_, err = l.Call("noparams")
 	if err != nil {
 		fmt.Println("Error calling 'noparams':", err)
 	}
@@ -51,7 +56,7 @@ func main() {
 	}
 
 	big := make(map[int]string)
-	for i:=0; i<=1000; i++ {
+	for i := 0; i <= 1000; i++ {
 		big[i] = "asdf"
 	}
 	ret, err = l.Call("map", big)

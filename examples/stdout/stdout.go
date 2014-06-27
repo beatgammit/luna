@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/beatgammit/luna"
 )
 
@@ -18,10 +19,13 @@ func (p printer) Write(msg []byte) (int, error) {
 
 func main() {
 	l := luna.New(luna.AllLibs)
-	l.LoadFile("stdout.lua")
+	_, err := l.LoadFile("stdout.lua")
+	if err != nil {
+		fmt.Println("Error loading file:", err)
+	}
 	l.Stdout(printer("test: "))
 
-	_, err := l.Call("hello")
+	_, err = l.Call("hello")
 	if err != nil {
 		fmt.Println("Error calling 'hello':", err)
 	}

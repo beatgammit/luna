@@ -279,17 +279,25 @@ func (l *Luna) Stdout(w io.Writer) {
 }
 
 // loads and executes a Lua source file
-func (l *Luna) LoadFile(path string) error {
+func (l *Luna) LoadFile(path string) (LuaRet, error) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	return l.L.DoFile(path)
+	err := l.L.DoFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return l.getReturnValues(), nil
 }
 
 // loads and executes Lua source
-func (l *Luna) Load(src string) error {
+func (l *Luna) Load(src string) (LuaRet, error) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	return l.L.DoString(src)
+	err := l.L.DoString(src)
+	if err != nil {
+		return nil, err
+	}
+	return l.getReturnValues(), nil
 }
 
 func (l *Luna) Close() {
@@ -310,6 +318,16 @@ func (lr LuaRet) Unmarshal(vals ...interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (l *Luna) getReturnValues() LuaRet {
+	iret := l.L.GetTop()
+	ret := make(LuaRet, iret)
+	for i := l.L.GetTop(); i > 0; i = l.L.GetTop() {
+		ret[i-1] = l.pop(i)
+		l.L.Pop(1)
+	}
+	return ret
 }
 
 // Call calls a Lua function named <string> with the provided arguments.
@@ -339,16 +357,9 @@ func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
 	}
 	err = l.L.Call(len(args), lua.LUA_MULTRET)
 	if err == nil {
-		iret := l.L.GetTop()
-		ret = make(LuaRet, iret)
-		for i := l.L.GetTop(); i > 0; i = l.L.GetTop() {
-			ret[i-1] = l.pop(i)
-			l.L.Pop(1)
-		}
+		return l.getReturnValues(), nil
 	}
-	// likely unnecessary
-	l.L.SetTop(top)
-	return
+	return nil, err
 }
 
 // CreateLibrary registers a library <name> with the given members.

@@ -81,14 +81,32 @@ func TestLoad(t *testing.T) {
 	c := new(stdout)
 	l := New(NoLibs)
 	l.Stdout(c)
-	if err := l.Load(src); err != nil {
-		t.Error("Error loading lua code:", err)
+	if _, err := l.Load(src); err != nil {
+		t.Fatal("Error loading lua code:", err)
 	}
 
 	if len(*c) != 1 {
 		t.Error("Should have exactly one message", c)
 	} else if (*c)[0] != msg+"\n" {
 		t.Errorf("Expected '%s', printed '%s'", msg+"\n", (*c)[0])
+	}
+}
+
+func TestLoadWithReturn(t *testing.T) {
+	l := New(NoLibs)
+	if ret, err := l.Load("function noop() end; return 'hello'"); err != nil {
+		t.Fatal("Error loading lua code:", err)
+	} else if len(ret) != 1 {
+		t.Errorf("Expected 1 return value, got %d", len(ret))
+	}
+
+	ret, err := l.Call("noop")
+	if err != nil {
+		t.Error("Error calling function")
+	}
+
+	if len(ret) > 0 {
+		t.Errorf("Function shouldn't return anything, but got '%d' return value(s)", len(ret))
 	}
 }
 
@@ -107,7 +125,7 @@ func TestLoadFile(t *testing.T) {
 	c := new(stdout)
 	l := New(NoLibs)
 	l.Stdout(c)
-	if err := l.LoadFile(fname); err != nil {
+	if _, err := l.LoadFile(fname); err != nil {
 		t.Error("Error loading lua script:", err)
 	}
 
@@ -163,7 +181,7 @@ func TestCreateLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error creating library:", err)
 	}
-	if err := l.Load("testlib.fun(testlib.val)"); err != nil {
+	if _, err := l.Load("testlib.fun(testlib.val)"); err != nil {
 		t.Error("Error loading test lua code:", err)
 	}
 	if funcCalled != 1 {
@@ -197,7 +215,7 @@ func TestMultiReturn(t *testing.T) {
         return {hello="world"}, "something"
     end`
 
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Fatal("error loading test code:", err)
 	}
 
@@ -439,7 +457,7 @@ function slice(arr)
 	end
 end
 `
-	if err := l.Load(file); err != nil {
+	if _, err := l.Load(file); err != nil {
 		t.Error("Error loading test lua code:", err)
 	}
 
@@ -552,7 +570,7 @@ func TestLuaTableToGoStruct(t *testing.T) {
 	}
 
 	l := New(LibBase)
-	if err := l.Load("function callMe() testlib.func({A=3,B=2,C=4.2,D=true,E='hello',F=nil,G=callMe,Z='hi'}) end"); err != nil {
+	if _, err := l.Load("function callMe() testlib.func({A=3,B=2,C=4.2,D=true,E='hello',F=nil,G=callMe,Z='hi'}) end"); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 	err := l.CreateLibrary("testlib", libMembers...)
@@ -582,7 +600,7 @@ function callMe()
 	testlib.func(5)
 	testlib.func(5, 6)
 end`
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 	err := l.CreateLibrary("testlib", libMembers...)
@@ -601,7 +619,7 @@ end
 function returnMult()
 	return 5, 3
 end`
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 
@@ -640,7 +658,7 @@ func TestReturnTableSlice(t *testing.T) {
         return {1, 2, 3}
     end`
 
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 
@@ -670,7 +688,7 @@ func TestReturnTableMap(t *testing.T) {
         return {hello = "world", luna = "rocks"}
     end`
 
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 
@@ -707,7 +725,7 @@ func TestReturnTableStruct(t *testing.T) {
         return {hello = "world", luna = "rocks"}
     end`
 
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 
@@ -742,7 +760,7 @@ func TestReturnTableNestedMapInStruct(t *testing.T) {
         return {val = {hello = { val = "world"}}}
     end`
 
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 
@@ -794,7 +812,7 @@ func TestUnmarshalText(t *testing.T) {
         return "hello\nworld"
     end`
 
-	if err := l.Load(code); err != nil {
+	if _, err := l.Load(code); err != nil {
 		t.Error("Error loading test code:", err)
 	}
 

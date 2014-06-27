@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/beatgammit/luna"
 )
 
@@ -37,5 +38,8 @@ func main() {
 	}
 	l.CreateLibrary("testlib", libMembers...)
 
-	l.LoadFile("library.lua")
+	_, err := l.LoadFile("library.lua")
+	if err != nil {
+		fmt.Println("Error loading file:", err)
+	}
 }
