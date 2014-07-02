@@ -35,15 +35,17 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 			panic(fmt.Sprintf("Args: %d, Params: %d", args, len(params)))
 		}
 
+		var varargs reflect.Value
 		if typ.IsVariadic() {
 			params[len(params)-1] = params[len(params)-1].Slice(0, 0)
+			varargs = params[len(params)-1]
 		}
 
 		for i := 1; i <= args; i++ {
 			if i >= len(params) && typ.IsVariadic() {
-				val := reflect.New(params[i-1].Type().Elem()).Elem()
+				val := reflect.New(varargs.Type().Elem()).Elem()
 				l.set(val, i)
-				params[i-1] = reflect.Append(params[i-1], val)
+				varargs = reflect.Append(varargs, val)
 			} else if i > len(params) {
 				// ignore extra args
 				break
@@ -54,6 +56,7 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 
 		var ret []reflect.Value
 		if typ.IsVariadic() {
+			params[len(params)-1] = varargs
 			ret = impl.CallSlice(params)
 		} else {
 			ret = impl.Call(params)
