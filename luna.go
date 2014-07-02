@@ -95,14 +95,14 @@ func (l *Luna) worker(c <-chan packet) {
 	}
 }
 
-func (l *Luna) stdCall(fn func () (LuaRet, error)) (LuaRet, error) {
+func (l *Luna) stdCall(fn func() (LuaRet, error)) (LuaRet, error) {
 	c := make(chan response, 1)
 	l.q <- packet{
 		func() (interface{}, error) {
-            return fn()
-        },
-        c,
-    }
+			return fn()
+		},
+		c,
+	}
 
 	resp := <-c
 	ret, _ := resp.ret.(LuaRet)
@@ -113,10 +113,10 @@ func (l *Luna) errCall(fn func() error) error {
 	c := make(chan response, 1)
 	l.q <- packet{
 		func() (interface{}, error) {
-            return nil, fn()
-        },
-        c,
-    }
+			return nil, fn()
+		},
+		c,
+	}
 
 	resp := <-c
 	return resp.err
@@ -137,29 +137,29 @@ func (l *Luna) Stdout(w io.Writer) {
 }
 
 func (l *Luna) loadFile(path string) (LuaRet, error) {
-    err := l.L.DoFile(path)
-    if err != nil {
-        return nil, err
-    }
-    return l.getReturnValues(), nil
+	err := l.L.DoFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return l.getReturnValues(), nil
 }
 
 func (l *Luna) load(src string) (LuaRet, error) {
-    err := l.L.DoString(src)
-    if err != nil {
-        return nil, err
-    }
-    return l.getReturnValues(), nil
+	err := l.L.DoString(src)
+	if err != nil {
+		return nil, err
+	}
+	return l.getReturnValues(), nil
 }
 
 // loads and executes a Lua source file
 func (l *Luna) LoadFile(path string) (LuaRet, error) {
-    return l.stdCall(func () (LuaRet, error) { return l.loadFile(path) })
+	return l.stdCall(func() (LuaRet, error) { return l.loadFile(path) })
 }
 
 // loads and executes Lua source
 func (l *Luna) Load(src string) (LuaRet, error) {
-    return l.stdCall(func () (LuaRet, error) { return l.load(src) })
+	return l.stdCall(func() (LuaRet, error) { return l.load(src) })
 }
 
 func (l *Luna) Close() {
@@ -214,7 +214,7 @@ func (l *Luna) call(name string, args ...interface{}) (ret LuaRet, err error) {
 }
 
 func (l *Luna) Call(name string, args ...interface{}) (LuaRet, error) {
-    return l.stdCall(func () (LuaRet, error) { return l.call(name, args...) })
+	return l.stdCall(func() (LuaRet, error) { return l.call(name, args...) })
 }
 
 // CreateLibrary registers a library <name> with the given members.
@@ -244,7 +244,7 @@ func (l *Luna) createLibrary(name string, members ...TableKeyValue) (err error) 
 }
 
 func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) error {
-    return l.errCall(func () error { return l.createLibrary(name, members...) })
+	return l.errCall(func() error { return l.createLibrary(name, members...) })
 }
 
 func (l *Luna) pushBasicType(arg interface{}) bool {
