@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 	"reflect"
-	"sync"
+	"runtime"
 
 	"github.com/beatgammit/golua/lua"
 )
@@ -37,12 +37,25 @@ type TableKeyValue struct {
 type Luna struct {
 	L   *lua.State
 	lib Lib
-	mut *sync.Mutex
+	q   chan<- packet
+}
+
+type response struct {
+	ret interface{}
+	err error
+}
+
+type packet struct {
+	fn func() (interface{}, error)
+	c  chan response
 }
 
 // New creates a new Luna instance, opening all libs provided.
 func New(libs Lib) *Luna {
-	l := &Luna{lua.NewState(), libs, &sync.Mutex{}}
+	// TODO: make queue size user-settable
+	c := make(chan packet, 5)
+
+	l := &Luna{lua.NewState(), libs, c}
 	if libs == AllLibs {
 		l.L.OpenLibs()
 	} else {
@@ -69,43 +82,96 @@ func New(libs Lib) *Luna {
 		}
 	}
 
+	go l.worker(c)
+
 	return l
+}
+
+func (l *Luna) worker(c <-chan packet) {
+	runtime.LockOSThread()
+	for p := range c {
+		ret, err := p.fn()
+		p.c <- response{ret, err}
+	}
+}
+
+func (l *Luna) stdCall(fn func () (LuaRet, error)) (LuaRet, error) {
+	c := make(chan response, 1)
+	l.q <- packet{
+		func() (interface{}, error) {
+            return fn()
+        },
+        c,
+    }
+
+	resp := <-c
+	ret, _ := resp.ret.(LuaRet)
+	return ret, resp.err
+}
+
+func (l *Luna) errCall(fn func() error) error {
+	c := make(chan response, 1)
+	l.q <- packet{
+		func() (interface{}, error) {
+            return nil, fn()
+        },
+        c,
+    }
+
+	resp := <-c
+	return resp.err
 }
 
 // Stdout changes where print() writes to (default os.Stdout).
 // Note, this does **not** change anything in the io package.
 func (l *Luna) Stdout(w io.Writer) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.L.Register("print", wrapperGen(l, reflect.ValueOf(printGen(w))))
+	c := make(chan response, 1)
+	l.q <- packet{
+		func() (interface{}, error) {
+			l.L.Register("print", wrapperGen(l, reflect.ValueOf(printGen(w))))
+			return nil, nil
+		},
+		c,
+	}
+	<-c
+}
+
+func (l *Luna) loadFile(path string) (LuaRet, error) {
+    err := l.L.DoFile(path)
+    if err != nil {
+        return nil, err
+    }
+    return l.getReturnValues(), nil
+}
+
+func (l *Luna) load(src string) (LuaRet, error) {
+    err := l.L.DoString(src)
+    if err != nil {
+        return nil, err
+    }
+    return l.getReturnValues(), nil
 }
 
 // loads and executes a Lua source file
 func (l *Luna) LoadFile(path string) (LuaRet, error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	err := l.L.DoFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return l.getReturnValues(), nil
+    return l.stdCall(func () (LuaRet, error) { return l.loadFile(path) })
 }
 
 // loads and executes Lua source
 func (l *Luna) Load(src string) (LuaRet, error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	err := l.L.DoString(src)
-	if err != nil {
-		return nil, err
-	}
-	return l.getReturnValues(), nil
+    return l.stdCall(func () (LuaRet, error) { return l.load(src) })
 }
 
 func (l *Luna) Close() {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.L.Close()
+	c := make(chan response, 1)
+	l.q <- packet{
+		func() (interface{}, error) {
+			l.L.Close()
+			return nil, nil
+		},
+		c,
+	}
+	<-c
 }
 
 func (l *Luna) getReturnValues() LuaRet {
@@ -119,10 +185,7 @@ func (l *Luna) getReturnValues() LuaRet {
 }
 
 // Call calls a Lua function named <string> with the provided arguments.
-func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-
+func (l *Luna) call(name string, args ...interface{}) (ret LuaRet, err error) {
 	top := l.L.GetTop()
 	defer func() {
 		if err == nil {
@@ -150,12 +213,13 @@ func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
 	return nil, err
 }
 
+func (l *Luna) Call(name string, args ...interface{}) (LuaRet, error) {
+    return l.stdCall(func () (LuaRet, error) { return l.call(name, args...) })
+}
+
 // CreateLibrary registers a library <name> with the given members.
 // An error is returned if one of the members is of an unsupported type.
-func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
-
+func (l *Luna) createLibrary(name string, members ...TableKeyValue) (err error) {
 	top := l.L.GetTop()
 	defer func() {
 		if err != nil {
@@ -177,6 +241,10 @@ func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) (err error) 
 
 	l.L.SetGlobal(name)
 	return
+}
+
+func (l *Luna) CreateLibrary(name string, members ...TableKeyValue) error {
+    return l.errCall(func () error { return l.createLibrary(name, members...) })
 }
 
 func (l *Luna) pushBasicType(arg interface{}) bool {
