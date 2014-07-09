@@ -296,11 +296,16 @@ func (l *Luna) pushComplexType(arg interface{}) (err error) {
 		return l.pushMap(reflect.ValueOf(arg))
 	case reflect.Ptr:
 		// TODO: this should eventually use lua userdata instead of just dereferencing
-		val := reflect.ValueOf(arg).Elem().Interface()
-		if l.pushBasicType(val) {
+		val := reflect.ValueOf(arg)
+		if val.IsNil() {
+			l.L.PushNil()
 			return nil
 		}
-		return l.pushComplexType(val)
+		ival := val.Elem().Interface()
+		if l.pushBasicType(ival) {
+			return nil
+		}
+		return l.pushComplexType(ival)
 	default:
 		err = fmt.Errorf("Invalid type: %s", typ.Kind())
 	}

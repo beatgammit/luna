@@ -548,6 +548,20 @@ func TestInvalidCall(t *testing.T) {
 	}
 }
 
+func TestCallZeroValue(t *testing.T) {
+	l := New(LibBase | LibString | LibTable)
+	defer l.Close()
+	c := new(stdout)
+	l.Stdout(c)
+	l.Load(`function fun(arg) return arg end`)
+
+	var f *float64
+	ret, err := l.Call("fun", f)
+	if len(ret) != 1 || err != nil {
+		t.Error("Calling with an invalid value should return an error, but still call stuff")
+	}
+}
+
 func TestLuaTableToGoStruct(t *testing.T) {
 	type Data struct {
 		A int
