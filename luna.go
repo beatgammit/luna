@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/beatgammit/golua/lua"
+	"github.com/aarzilli/golua/lua"
 )
 
 type Lib uint

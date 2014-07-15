@@ -5,7 +5,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/beatgammit/golua/lua"
+	"github.com/aarzilli/golua/lua"
 )
 
 // helper functions
