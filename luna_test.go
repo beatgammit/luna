@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func (l *Luna) loaded(libs Lib) bool {
@@ -827,13 +828,12 @@ func TestUnmarshalText(t *testing.T) {
     end`
 
 	if _, err := l.Load(code); err != nil {
-		t.Error("Error loading test code:", err)
+		t.Fatal("Error loading test code:", err)
 	}
 
 	ret, err := l.Call("returnTextMarshaler")
 	if err != nil {
-		t.Error("Error calling returnTextMarshaler:", err)
-		return
+		t.Fatal("Error calling returnTextMarshaler:", err)
 	}
 
 	var tm textMarshaler
@@ -855,5 +855,34 @@ func TestBadUnmarshal(t *testing.T) {
 	err := val.Unmarshal(&str)
 	if err == nil {
 		t.Error("Expected error when unmarshalling lua number into a Go string")
+	}
+}
+
+func TestCallTimeout(t *testing.T) {
+	l := New(LibOS)
+	l.CallTimeout = time.Millisecond
+	code := `
+    function block() os.execute('sleep .1') end
+    `
+
+	if _, err := l.Load(code); err != nil {
+		t.Fatal("Error loading test code:", err)
+	}
+
+	start := time.Now()
+	if _, err := l.Call("block"); err == nil {
+		t.Error("Timeout didn't work")
+	} else if !l.Running() {
+		t.Error("Script should still report that it's running")
+	} else if time.Now().Sub(start) < l.CallTimeout {
+		t.Error("Didn't wait long enough")
+	}
+
+	start = time.Now()
+	l.Call("block")
+	if time.Now().Sub(start) >= l.CallTimeout {
+		t.Error("Calling a function while another is running shouldn't block")
+	} else if !l.Running() {
+		t.Error("Script should still report that it's running")
 	}
 }

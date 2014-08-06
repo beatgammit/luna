@@ -6,9 +6,16 @@ import (
 	"log"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/beatgammit/golua/lua"
 )
+
+type Timeout string
+
+func (t Timeout) Error() string {
+	return "Timeout calling function: " + string(t)
+}
 
 type Lib uint
 
@@ -35,14 +42,18 @@ type TableKeyValue struct {
 }
 
 type Luna struct {
-	L   *lua.State
-	lib Lib
-	mut *sync.Mutex
+	CallTimeout time.Duration
+	L           *lua.State
+
+	lib     Lib
+	mut     *sync.Mutex
+	running bool
+	err     error
 }
 
 // New creates a new Luna instance, opening all libs provided.
 func New(libs Lib) *Luna {
-	l := &Luna{lua.NewState(), libs, &sync.Mutex{}}
+	l := &Luna{L: lua.NewState(), lib: libs, mut: &sync.Mutex{}}
 	if libs == AllLibs {
 		l.L.OpenLibs()
 	} else {
@@ -70,6 +81,10 @@ func New(libs Lib) *Luna {
 	}
 
 	return l
+}
+
+func (l Luna) Running() bool {
+	return l.running
 }
 
 // Stdout changes where print() writes to (default os.Stdout).
@@ -102,10 +117,20 @@ func (l *Luna) Load(src string) (LuaRet, error) {
 	return l.getReturnValues(), nil
 }
 
-func (l *Luna) Close() {
+func (l *Luna) CloseWait() {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 	l.L.Close()
+}
+
+// If another function is running, closing will not block
+// If you want to be sure it's closed, use CloseWait instead
+func (l *Luna) Close() {
+	if l.running {
+		go l.CloseWait()
+	} else {
+		l.CloseWait()
+	}
 }
 
 func (l *Luna) getReturnValues() LuaRet {
@@ -118,10 +143,8 @@ func (l *Luna) getReturnValues() LuaRet {
 	return ret
 }
 
-// Call calls a Lua function named <string> with the provided arguments.
-func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
-	l.mut.Lock()
-	defer l.mut.Unlock()
+func (l *Luna) call(success chan<- LuaRet, fail chan<- error, name string, args ...interface{}) {
+	var err error
 
 	top := l.L.GetTop()
 	defer func() {
@@ -140,14 +163,66 @@ func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
 		}
 
 		if err = l.pushComplexType(arg); err != nil {
+			fail <- err
 			return
 		}
 	}
 	err = l.L.Call(len(args), lua.LUA_MULTRET)
 	if err == nil {
-		return l.getReturnValues(), nil
+		success <- l.getReturnValues()
+	} else {
+		fail <- err
 	}
-	return nil, err
+}
+
+// Call calls a Lua function named <string> with the provided arguments.
+// If CallTimeout is non-zero, this function will abort the function call after
+// the specified timeout.
+// Note, this does not interrupt the call, so future calls will fail immediately
+// if a blocked call is still executing.
+func (l *Luna) Call(name string, args ...interface{}) (ret LuaRet, err error) {
+	if l.running && l.err != nil {
+		err = l.err
+		return
+	}
+
+	l.mut.Lock()
+	l.running = true
+	defer func() {
+		if l.err == nil {
+			l.running = false
+			l.mut.Unlock()
+		}
+	}()
+
+	var c <-chan time.Time
+	if l.CallTimeout != 0 {
+		c = time.After(l.CallTimeout)
+	}
+	success := make(chan LuaRet, 1)
+	fail := make(chan error, 1)
+	go l.call(success, fail, name, args...)
+	select {
+	case ret = <-success:
+		return
+	case err = <-fail:
+		return
+	case <-c:
+		l.err = Timeout(name)
+		go func() {
+			select {
+			case <-success:
+			case <-fail:
+			}
+
+			// recover
+			l.err = nil
+			l.running = false
+			l.mut.Unlock()
+		}()
+		return nil, l.err
+	}
+	return nil, nil
 }
 
 // CreateLibrary registers a library <name> with the given members.
