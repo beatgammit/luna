@@ -148,6 +148,9 @@ func (l *Luna) call(success chan<- LuaRet, fail chan<- error, name string, args 
 
 	top := l.L.GetTop()
 	defer func() {
+		if err := recover(); err != nil {
+			fail <- fmt.Errorf("%s", err)
+		}
 		if err == nil {
 			return
 		}
@@ -477,10 +480,16 @@ func (l *Luna) set(val reflect.Value, i int) error {
 		val.SetString(l.L.ToString(i))
 	case lua.LUA_TTABLE:
 		return l.tableToStruct(val, i)
+	case lua.LUA_TNIL:
+		if val.Kind() >= reflect.Bool && val.Kind() <= reflect.Float64 ||
+			val.Kind() == reflect.String ||
+			val.Kind() == reflect.Struct {
+
+			val = reflect.New(val.Type()).Elem()
+		} else {
+			return fmt.Errorf("Unexpected nil type, reflect.Kind: %d", val.Kind())
+		}
 		/*
-			case lua.LUA_TNIL:
-				// TODO: implement
-				fallthrough
 			case lua.LUA_TFUNCTION:
 				// TODO: implement
 				fallthrough
