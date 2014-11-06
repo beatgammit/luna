@@ -1,4 +1,7 @@
 print(testlib.Empty())
 print(testlib.BasicParams(3, 4.2, "hello", true))
+print(testlib.BasicParams(nil, nil, nil, nil))
 print("Basic ret:", testlib.BasicRet())
 print(testlib.StructParam({A=5, B=2}))
+print(testlib.StructParam({A=nil, B=nil}))
+print(testlib.StructParam(nil))

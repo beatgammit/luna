@@ -25,11 +25,11 @@ func printGen(w io.Writer) func(...string) {
 func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 	typ := impl.Type()
 	params := make([]reflect.Value, typ.NumIn())
-	for i := range params {
-		params[i] = reflect.New(typ.In(i)).Elem()
-	}
 
 	return func(L *lua.State) int {
+		for i := range params {
+			params[i] = reflect.New(typ.In(i)).Elem()
+		}
 		args := L.GetTop()
 		if args < len(params) {
 			panic(fmt.Sprintf("Args: %d, Params: %d", args, len(params)))
@@ -50,7 +50,9 @@ func wrapperGen(l *Luna, impl reflect.Value) lua.LuaGoFunction {
 				// ignore extra args
 				break
 			} else {
-				l.set(params[i-1], i)
+				if err := l.set(params[i-1], i); err != nil {
+					panic(err)
+				}
 			}
 		}
 

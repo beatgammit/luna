@@ -193,6 +193,45 @@ func TestCreateLibrary(t *testing.T) {
 	}
 }
 
+func TestLibraryCallWithNilValues(t *testing.T) {
+	fun := func(vali int, valf float32, vals string, valb bool) (int, float32, string, bool) {
+		return vali, valf, vals, valb
+	}
+
+	l := New(LibBase)
+	libMembers := []TableKeyValue{
+		{"fun", fun},
+	}
+	err := l.CreateLibrary("testlib", libMembers...)
+	if err != nil {
+		t.Fatal("Error creating library:", err)
+	}
+	ret, err := l.Load("testlib.fun(nil, nil, nil, nil)")
+	if err != nil {
+		t.Error("Error loading test lua code:", err)
+	}
+	var (
+		i int
+		f float32
+		s string
+		b bool
+	)
+	ret.Unmarshal(&i, &f, &s, &b)
+
+	if i != 0 {
+		t.Errorf("Return value do not match: %d != 0", i)
+	}
+	if f != 0 {
+		t.Errorf("Return value do not match: %f != 0", f)
+	}
+	if s != "" {
+		t.Errorf("Return value do not match: %s != ''", s)
+	}
+	if b != false {
+		t.Errorf("Return value do not match: %t != false", b)
+	}
+}
+
 func TestInvalidLibrary(t *testing.T) {
 	l := New(LibBase)
 	libMembers := []TableKeyValue{
@@ -622,7 +661,11 @@ end`
 	if err != nil {
 		t.Fatal("Error loading library:", err)
 	}
+
 	_, err = l.Call("callMe")
+	if err == nil || err.Error() != "Wrong type" {
+		t.Fatal("Error call to invalid Lua to Go function does not lead to an error:", err)
+	}
 }
 
 func TestReturns(t *testing.T) {
