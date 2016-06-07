@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/beatgammit/golua/lua"
+	"github.com/aarzilli/golua/lua"
 )
 
 type Timeout string
